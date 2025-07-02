@@ -147,7 +147,7 @@ export async function POST(
       multipleViews[1] || null,
       multipleViews[2] || null
     ]
-
+    console.log(`uploaded ${imageUrls} images to storage`)
     // Call Synexa AI API
     console.log("Calling Synexa AI API...")
     const synexaResponse = await fetch(`${SYNEXA_BASE_URL}/predictions`, {
