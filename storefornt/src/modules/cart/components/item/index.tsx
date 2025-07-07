@@ -12,6 +12,7 @@ import LineItemUnitPrice from "@modules/common/components/line-item-unit-price"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import Spinner from "@modules/common/icons/spinner"
 import Thumbnail from "@modules/products/components/thumbnail"
+import Cart3DModelPreview from "@modules/cart/components/3d-model-preview"
 import { useState } from "react"
 
 type ItemProps = {
@@ -48,6 +49,7 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
   const has3DModel = item.metadata?.has_3d_model
   const modelUrl = item.metadata?.model_url as string
   const generatedAt = item.metadata?.generated_at as string
+  const predictionId = item.metadata?.prediction_id as string
 
   return (
     <Table.Row className="w-full" data-testid="product-row">
@@ -78,25 +80,46 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
         
         {/* 3D Model Information */}
         {has3DModel && (
-          <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
-            <div className="flex items-center gap-1 mb-1">
-              <span className="text-blue-600">🎭</span>
-              <span className="font-semibold text-blue-800">3D Model Included</span>
+          <div className="mt-2 p-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🎭</span>
+                <span className="font-semibold text-blue-800">3D Model Included</span>
+              </div>
+              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                Custom Generated
+              </span>
             </div>
-            <div className="space-y-1 text-blue-700">
+            
+            <div className="space-y-2">
               {modelUrl && (
-                <button
-                  onClick={() => window.open(modelUrl, '_blank')}
-                  className="text-blue-600 underline hover:text-blue-800"
-                >
-                  View 3D Model
-                </button>
-              )}
-              {generatedAt && (
-                <div className="text-xs text-blue-600">
-                  Generated: {new Date(generatedAt).toLocaleDateString()}
+                <div className="flex gap-2">
+                  <Cart3DModelPreview
+                    modelUrl={modelUrl}
+                    productTitle={item.product_title || ''}
+                    generatedAt={generatedAt}
+                    predictionId={predictionId}
+                  />
+                  <button
+                    onClick={() => {
+                      const link = document.createElement('a')
+                      link.href = modelUrl
+                      link.download = `3d-model-${item.product_title?.replace(/\s+/g, '-')}.glb`
+                      link.click()
+                    }}
+                    className="text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded hover:bg-gray-200 transition-colors"
+                  >
+                    💾 Download
+                  </button>
                 </div>
               )}
+              
+              <div className="flex items-center justify-between text-xs text-blue-600">
+                {generatedAt && (
+                  <span>Generated: {new Date(generatedAt).toLocaleDateString()}</span>
+                )}
+                <span className="text-green-600 font-medium">✨ Personalized</span>
+              </div>
             </div>
           </div>
         )}

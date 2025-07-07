@@ -153,6 +153,16 @@ const CartDropdown = ({
                                 >
                                   Quantity: {item.quantity}
                                 </span>
+                                
+                                {/* 3D Model Badge in Cart Dropdown */}
+                                {item.metadata?.has_3d_model && (
+                                  <div className="mt-1 flex items-center gap-1">
+                                    <span className="text-sm">🎭</span>
+                                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                                      3D Model
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                               <div className="flex justify-end">
                                 <LineItemPrice
