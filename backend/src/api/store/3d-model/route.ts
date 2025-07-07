@@ -233,17 +233,96 @@ export async function POST(
       )
     }
 
+    // Download and upload the 3D model to storage
+    let uploadedModelUrl: string | null = null
+    if (finalResult.output?.[0]) {
+      try {
+        console.log("Downloading 3D model from Synexa AI...")
+        
+        // Add timeout and better error handling for the download
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+        
+        const modelResponse = await fetch(finalResult.output[0], {
+          signal: controller.signal
+        })
+        clearTimeout(timeoutId)
+        
+        if (!modelResponse.ok) {
+          throw new Error(`Failed to download model: ${modelResponse.status} ${modelResponse.statusText}`)
+        }
+
+        const modelBuffer = await modelResponse.arrayBuffer()
+        const modelFileName = `3d_model_${finalResult.id}.glb`
+        const fileSizeMB = (modelBuffer.byteLength / (1024 * 1024)).toFixed(2)
+        
+        console.log(`Downloaded 3D model (${fileSizeMB}MB), uploading to storage...`)
+
+        // Check file size and skip upload if too large (over 10MB)
+        if (modelBuffer.byteLength > 10 * 1024 * 1024) {
+          console.warn(`3D model file too large (${fileSizeMB}MB), skipping upload to storage. Using original URL.`)
+          uploadedModelUrl = finalResult.output[0] // Use original URL if file is too large
+        } else {
+          // Convert ArrayBuffer to Buffer more efficiently
+          const nodeBuffer = Buffer.from(modelBuffer)
+          
+          // Upload the 3D model to storage with retry logic
+          let uploadAttempts = 0
+          const maxUploadAttempts = 3
+          
+          while (uploadAttempts < maxUploadAttempts) {
+            try {
+              const { result: uploadedModel } = await uploadFilesWorkflow(req.scope).run({
+                input: {
+                  files: [{
+                    filename: modelFileName,
+                    mimeType: "model/gltf-binary",
+                    content: nodeBuffer.toString("binary"),
+                    access: "public" as const
+                  }]
+                }
+              })
+
+              uploadedModelUrl = uploadedModel[0]?.url || null
+              console.log(`Successfully uploaded 3D model to storage: ${uploadedModelUrl}`)
+              break // Success, exit retry loop
+              
+            } catch (uploadError) {
+              uploadAttempts++
+              console.error(`Upload attempt ${uploadAttempts} failed:`, uploadError.message)
+              
+              if (uploadAttempts >= maxUploadAttempts) {
+                console.warn("All upload attempts failed, using original URL")
+                uploadedModelUrl = finalResult.output[0] // Fallback to original URL
+              } else {
+                // Wait before retry
+                await new Promise(resolve => setTimeout(resolve, 2000))
+              }
+            }
+          }
+        }
+        
+      } catch (error) {
+        console.error("Error downloading/uploading 3D model:", error)
+        // Fallback to original URL if download/upload fails
+        uploadedModelUrl = finalResult.output?.[0] || null
+        console.log("Using original Synexa URL as fallback:", uploadedModelUrl)
+      }
+    }
+
+    const originalModelUrl = finalResult.output?.[0] || null
+    const isUploadedToStorage = uploadedModelUrl && uploadedModelUrl !== originalModelUrl
+
     res.status(200).json({
       success: true,
       message: "3D model generated successfully",
       data: {
         prediction_id: finalResult.id,
         status: finalResult.status,
-        model_url: finalResult.output?.[0] || null,
-        uploaded_images: uploadedFiles.map(file => ({
-          url: file.url,
-          filename: (file as any).key || file.url.split('/').pop()
-        })),
+        model_url: uploadedModelUrl || originalModelUrl, // Use uploaded URL if available, otherwise original
+        original_model_url: originalModelUrl, // Keep original for reference
+        is_uploaded_to_storage: isUploadedToStorage, // Indicates if model was successfully uploaded to our storage
+        uploaded_images: uploadedFiles.map(file => file.url),
         compression_stats: compressedFiles.map(file => ({
           filename: file.filename,
           original_size_mb: (file.originalSize / (1024 * 1024)).toFixed(2),
@@ -252,7 +331,14 @@ export async function POST(
         })),
         processing_time: finalResult.metrics?.predict_time || null,
         created_at: finalResult.created_at,
-        completed_at: finalResult.completed_at
+        completed_at: finalResult.completed_at,
+        upload_info: {
+          attempted_upload: finalResult.output?.[0] ? true : false,
+          upload_successful: isUploadedToStorage,
+          fallback_used: !isUploadedToStorage && originalModelUrl ? true : false,
+          storage_url: isUploadedToStorage ? uploadedModelUrl : null,
+          external_url: originalModelUrl
+        }
       }
     })
 

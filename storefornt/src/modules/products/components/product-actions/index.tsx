@@ -171,27 +171,12 @@ export default function ProductActions({
 
         {/* 3D Model Section */}
         <div className="space-y-4">
-          {!show3DUpload && !generated3DModel && (
-            <Button
-              onClick={() => setShow3DUpload(true)}
-              variant="outline"
-              className="w-full"
-              disabled={!!disabled || isAdding}
-            >
-              🎭 Add 3D Model (Optional)
-            </Button>
-          )}
+      
 
           {show3DUpload && (
             <div className="space-y-4">
               <Image3DUpload onModelGenerated={handle3DModelGenerated} />
-              <Button
-                onClick={() => setShow3DUpload(false)}
-                variant="outline"
-                className="w-full"
-              >
-                Cancel 3D Upload
-              </Button>
+     
             </div>
           )}
 
