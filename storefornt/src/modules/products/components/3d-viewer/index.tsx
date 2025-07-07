@@ -235,9 +235,10 @@ const Model3DViewer: React.FC<Model3DViewerProps> = ({
                   modelViewer.setAttribute('interaction-policy', 'always-allow')
                   modelViewer.setAttribute('loading', 'eager')
                   modelViewer.setAttribute('reveal', 'auto')
+                  modelViewer.style.backgroundColor = '#262626'
                   modelViewer.style.width = '100%'
                   modelViewer.style.height = '100%'
-                  modelViewer.style.backgroundColor = '#f8fafc'
+                  
                   
                   // Add event listeners
                   modelViewer.addEventListener('load', () => {
