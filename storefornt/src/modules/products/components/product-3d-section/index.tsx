@@ -12,10 +12,7 @@ interface Product3DSectionProps {
 }
 
 interface ModelData {
-  model_url: string
-  prediction_id: string
-  uploaded_images: string[]
-  compression_stats: any[]
+  [key: string]: any // Accept any API response structure
 }
 
 const Product3DSection: React.FC<Product3DSectionProps> = ({

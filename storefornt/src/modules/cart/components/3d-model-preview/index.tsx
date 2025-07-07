@@ -10,13 +10,15 @@ interface Cart3DModelPreviewProps {
   productTitle: string
   generatedAt?: string
   predictionId?: string
+  apiResponse?: any // Complete API response
 }
 
 const Cart3DModelPreview: React.FC<Cart3DModelPreviewProps> = ({
   modelUrl,
   productTitle,
   generatedAt,
-  predictionId
+  predictionId,
+  apiResponse
 }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -142,6 +144,18 @@ const Cart3DModelPreview: React.FC<Cart3DModelPreviewProps> = ({
               <div className="mt-3 text-xs text-gray-500 text-center">
                 🎭 Custom generated 3D model • Use mouse to rotate and zoom • Compatible with AR/VR viewers
               </div>
+              
+              {/* API Response Debug Info */}
+              {apiResponse && (
+                <details className="mt-3 text-xs">
+                  <summary className="cursor-pointer text-gray-600 hover:text-gray-800">
+                    📄 View Complete API Response
+                  </summary>
+                  <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-auto max-h-32">
+                    {JSON.stringify(apiResponse, null, 2)}
+                  </pre>
+                </details>
+              )}
             </div>
           </div>
         </div>

@@ -6,12 +6,7 @@ import { Upload, X, FileImage, Loader2, Box, Send, Eye, Download, RotateCcw } fr
 import { validateImages, submitModelGeneration } from "@lib/data/3d-model"
 
 interface Image3DUploadProps {
-  onModelGenerated: (modelData: {
-    model_url: string
-    prediction_id: string
-    uploaded_images: string[]
-    compression_stats: any[]
-  }) => void
+  onModelGenerated: (modelData: any) => void // Accept complete API response
   onProcessingStarted?: () => void
   onError?: (errorMessage: string) => void
 }
@@ -146,12 +141,7 @@ const Image3DUpload = ({ onModelGenerated, onProcessingStarted, onError }: Image
   const [error, setError] = useState("")
   const [currentSlot, setCurrentSlot] = useState(0)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [generatedModel, setGeneratedModel] = useState<{
-    model_url: string
-    prediction_id: string
-    uploaded_images: string[]
-    compression_stats: any[]
-  } | null>(null)
+  const [generatedModel, setGeneratedModel] = useState<any | null>(null)
   const [showPreview, setShowPreview] = useState(false)
   
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([null, null, null, null])

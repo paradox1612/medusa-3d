@@ -35,12 +35,7 @@ export default function ProductActions({
   const [options, setOptions] = useState<Record<string, string | undefined>>({})
   const [isAdding, setIsAdding] = useState(false)
   const [show3DUpload, setShow3DUpload] = useState(false)
-  const [generated3DModel, setGenerated3DModel] = useState<{
-    model_url: string
-    prediction_id: string
-    uploaded_images: string[]
-    compression_stats: any[]
-  } | null>(null)
+  const [generated3DModel, setGenerated3DModel] = useState<any | null>(null)
   const countryCode = useParams().countryCode as string
 
   // If there is only 1 variant, preselect the options
@@ -112,32 +107,44 @@ export default function ProductActions({
 
     setIsAdding(true)
 
-    if (generated3DModel) {
-      // Add to cart with 3D model metadata
-      await addToCartWith3D({
-        variantId: selectedVariant.id,
-        quantity: 1,
-        countryCode,
-        modelData: generated3DModel,
-      })
-    } else {
-      // Regular add to cart
-      await addToCart({
-        variantId: selectedVariant.id,
-        quantity: 1,
-        countryCode,
-      })
+    try {
+      if (generated3DModel) {
+        console.log("🛒 Adding to cart with 3D model:", {
+          variantId: selectedVariant.id,
+          modelData: generated3DModel,
+          countryCode
+        })
+        
+        // Add to cart with 3D model metadata
+        await addToCartWith3D({
+          variantId: selectedVariant.id,
+          quantity: 1,
+          countryCode,
+          modelData: generated3DModel,
+        })
+        
+        console.log("✅ Successfully added to cart with 3D model")
+      } else {
+        console.log("🛒 Adding to cart without 3D model")
+        
+        // Regular add to cart
+        await addToCart({
+          variantId: selectedVariant.id,
+          quantity: 1,
+          countryCode,
+        })
+        
+        console.log("✅ Successfully added to cart")
+      }
+    } catch (error) {
+      console.error("❌ Failed to add to cart:", error)
     }
 
     setIsAdding(false)
   }
 
-  const handle3DModelGenerated = (modelData: {
-    model_url: string
-    prediction_id: string
-    uploaded_images: string[]
-    compression_stats: any[]
-  }) => {
+  const handle3DModelGenerated = (modelData: any) => {
+    console.log("🎭 Received complete 3D model API response:", modelData)
     setGenerated3DModel(modelData)
     setShow3DUpload(false)
   }
@@ -192,7 +199,7 @@ export default function ProductActions({
               <div className="flex gap-2">
                 <Button
                   onClick={() => window.open(generated3DModel.model_url, '_blank')}
-                  variant="outline"
+                  variant="secondary"
                   className="text-xs"
                   size="small"
                 >
@@ -203,7 +210,7 @@ export default function ProductActions({
                     setGenerated3DModel(null)
                     setShow3DUpload(true)
                   }}
-                  variant="outline"
+                  variant="secondary"
                   className="text-xs"
                   size="small"
                 >

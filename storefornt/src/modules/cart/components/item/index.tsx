@@ -50,6 +50,15 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
   const modelUrl = item.metadata?.model_url as string
   const generatedAt = item.metadata?.generated_at as string
   const predictionId = item.metadata?.prediction_id as string
+  const apiResponse = item.metadata?.api_response ? JSON.parse(item.metadata.api_response as string) : null
+  
+  // Debug: Log the complete API response stored in metadata
+  if (has3DModel && apiResponse) {
+    console.log("🎭 Cart item with complete 3D API response:", {
+      productTitle: item.product_title,
+      apiResponse: apiResponse
+    })
+  }
 
   return (
     <Table.Row className="w-full" data-testid="product-row">
@@ -99,6 +108,7 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
                     productTitle={item.product_title || ''}
                     generatedAt={generatedAt}
                     predictionId={predictionId}
+                    apiResponse={apiResponse}
                   />
                   <button
                     onClick={() => {
