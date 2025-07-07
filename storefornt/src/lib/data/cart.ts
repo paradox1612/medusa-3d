@@ -46,7 +46,18 @@ export async function retrieveCart(cartId?: string) {
       next,
       cache: "force-cache",
     })
-    .then(({ cart }) => cart)
+    .then(({ cart }) => {
+      // Debug: Log cart items with 3D model metadata
+      const itemsWith3D = cart.items?.filter(item => item.metadata?.has_3d_model)
+      if (itemsWith3D && itemsWith3D.length > 0) {
+        console.log("🎭 Cart retrieved with 3D model items:", {
+          totalItems: cart.items?.length || 0,
+          itemsWith3D: itemsWith3D.length,
+          modelUrls: itemsWith3D.map(item => item.metadata?.model_url)
+        })
+      }
+      return cart
+    })
     .catch(() => null)
 }
 
@@ -163,16 +174,18 @@ export async function addToCartWith3D({
   variantId: string
   quantity: number
   countryCode: string
-  modelData: {
-    model_url: string
-    prediction_id: string
-    uploaded_images: string[]
-    compression_stats: any[]
-  }
+  modelData: any // Accept the complete API response
 }) {
   if (!variantId) {
     throw new Error("Missing variant ID when adding to cart")
   }
+
+  console.log("🛒 addToCartWith3D called with complete API response:", {
+    variantId,
+    quantity,
+    countryCode,
+    modelData: modelData // Log the complete response
+  })
 
   const cart = await getOrSetCart(countryCode)
 
@@ -184,6 +197,20 @@ export async function addToCartWith3D({
     ...(await getAuthHeaders()),
   }
 
+  const lineItemMetadata = {
+    has_3d_model: true,
+    // Store the complete API response
+    api_response: JSON.stringify(modelData),
+    // Also store individual fields for easy access
+    model_url: modelData.model_url,
+    prediction_id: modelData.prediction_id,
+    uploaded_images: JSON.stringify(modelData.uploaded_images),
+    compression_stats: JSON.stringify(modelData.compression_stats),
+    generated_at: new Date().toISOString(),
+  }
+
+  console.log("📦 Creating line item with metadata:", lineItemMetadata)
+
   // Create line item with 3D model metadata
   await sdk.store.cart
     .createLineItem(
@@ -191,26 +218,24 @@ export async function addToCartWith3D({
       {
         variant_id: variantId,
         quantity,
-        metadata: {
-          has_3d_model: true,
-          model_url: modelData.model_url,
-          prediction_id: modelData.prediction_id,
-          uploaded_images: JSON.stringify(modelData.uploaded_images),
-          compression_stats: JSON.stringify(modelData.compression_stats),
-          generated_at: new Date().toISOString(),
-        },
+        metadata: lineItemMetadata,
       },
       {},
       headers
     )
     .then(async () => {
+      console.log("✅ Line item created successfully with 3D model metadata")
+      
       const cartCacheTag = await getCacheTag("carts")
       revalidateTag(cartCacheTag)
 
       const fulfillmentCacheTag = await getCacheTag("fulfillment")
       revalidateTag(fulfillmentCacheTag)
     })
-    .catch(medusaError)
+    .catch((error) => {
+      console.error("❌ Failed to create line item with 3D model:", error)
+      throw error
+    })
 }
 
 export async function updateLineItem({
