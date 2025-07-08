@@ -6,6 +6,13 @@ checkEnvVariables()
  * @type {import('next').NextConfig}
  */
 const nextConfig = {
+
+  allowedDevOrigins: [
+    '192.168.1.249',
+    'localhost',
+    '127.0.0.1',
+    // Add any other IPs you're accessing from
+  ],
   reactStrictMode: true,
   experimental: {
     serverActions: {
