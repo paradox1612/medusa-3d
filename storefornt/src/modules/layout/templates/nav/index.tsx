@@ -51,7 +51,7 @@ export default async function Nav() {
               className="txt-compact-xlarge-plus hover:text-purple-600 transition-colors duration-200 font-bold text-xl bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent"
               data-testid="nav-store-link"
             >
-              ❤️ Turn Memories Into Art
+              ❤️ Minimica
             </LocalizedClientLink>
           </div>
 

@@ -25,6 +25,8 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
   const [updating, setUpdating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  console.log("Cart item product data:", item)
+
   const changeQuantity = async (quantity: number) => {
     setError(null)
     setUpdating(true)
@@ -60,6 +62,11 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
     })
   }
 
+  const displayThumbnail =
+    has3DModel && apiResponse?.uploaded_images?.[0]
+      ? apiResponse.uploaded_images[0]
+      : item.thumbnail
+
   return (
     <Table.Row className="w-full" data-testid="product-row">
       <Table.Cell className="!pl-0 p-4 w-24">
@@ -71,7 +78,7 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
           })}
         >
           <Thumbnail
-            thumbnail={item.thumbnail}
+            thumbnail={displayThumbnail}
             images={item.variant?.product?.images}
             size="square"
           />

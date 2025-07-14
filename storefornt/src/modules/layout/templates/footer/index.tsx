@@ -13,7 +13,7 @@ export default async function Footer() {
               href="/"
               className="text-xl font-bold bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent"
             >
-              ❤️ Turn Memories Into Art
+              ❤️ Minimica
             </LocalizedClientLink>
             <p className="text-sm text-gray-600 leading-relaxed">
               Create personalized 3D miniatures from your photos. Perfect for couples, families, and anyone looking for a unique bonding experience.
@@ -137,7 +137,7 @@ export default async function Footer() {
         {/* Bottom Section */}
         <div className="flex flex-col md:flex-row w-full pb-8 justify-between items-center text-gray-500 border-t border-gray-200/50 pt-8">
           <Text className="text-sm">
-            © {new Date().getFullYear()} Turn Memories Into Art. All rights reserved.
+            © {new Date().getFullYear()} Minimica. All rights reserved.
           </Text>
           
           {/* Trust Badges */}

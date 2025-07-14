@@ -194,6 +194,7 @@ const Image3DUpload = ({ onModelGenerated, onProcessingStarted, onError }: Image
       setShowPreview(true) // Automatically show preview when model is ready
       
       // Notify parent component IMMEDIATELY
+      console.log("📦 Passing generated model data to parent component to be added to cart metadata:", state.data)
       onModelGenerated(state.data!)
       
       // Reset form and clean up URLs

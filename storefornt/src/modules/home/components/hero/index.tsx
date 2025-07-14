@@ -43,7 +43,7 @@ const Hero = () => {
               {/* Badge */}
               <div className="inline-flex items-center bg-white/80 backdrop-blur-sm text-gray-700 px-4 py-2 rounded-full text-sm font-medium border border-gray-200/50 shadow-sm">
                 <Heart size={14} className="mr-2 text-pink-500" />
-                Turn Memories Into Art
+                Minimica
               </div>
 
               {/* Main Headline */}
