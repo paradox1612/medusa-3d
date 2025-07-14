@@ -39,11 +39,10 @@ const Hero = () => {
             
             {/* Left Content */}
             <div className={`space-y-8 transform transition-all duration-1000 ${isVisible ? 'translate-x-0 opacity-100' : '-translate-x-10 opacity-0'}`}>
-              
               {/* Badge */}
               <div className="inline-flex items-center bg-white/80 backdrop-blur-sm text-gray-700 px-4 py-2 rounded-full text-sm font-medium border border-gray-200/50 shadow-sm">
                 <Heart size={14} className="mr-2 text-pink-500" />
-                Minimica
+                Create. Paint. Cherish.
               </div>
 
               {/* Main Headline */}

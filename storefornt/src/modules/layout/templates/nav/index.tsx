@@ -1,4 +1,5 @@
 import { Suspense } from "react"
+import Image from "next/image"
 
 import { listRegions } from "@lib/data/regions"
 import { StoreRegion } from "@medusajs/types"
@@ -48,10 +49,14 @@ export default async function Nav() {
           <div className="flex items-center h-full">
             <LocalizedClientLink
               href="/"
-              className="txt-compact-xlarge-plus hover:text-purple-600 transition-colors duration-200 font-bold text-xl bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent"
+              className="flex items-center h-16"
               data-testid="nav-store-link"
             >
-              ❤️ Minimica
+              <img 
+                src="/img/logo.png" 
+                alt="Minimica Logo" 
+                className="h-16 w-auto hover:opacity-90 transition-opacity" 
+              />
             </LocalizedClientLink>
           </div>
 

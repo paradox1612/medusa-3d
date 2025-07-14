@@ -1,4 +1,5 @@
 import { Text } from "@medusajs/ui"
+import Image from "next/image"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 
 export default async function Footer() {
@@ -13,7 +14,7 @@ export default async function Footer() {
               href="/"
               className="text-xl font-bold bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent"
             >
-              ❤️ Minimica
+              <img src="/img/logo.png" alt="Minimica Logo" className="h-10 w-auto" />
             </LocalizedClientLink>
             <p className="text-sm text-gray-600 leading-relaxed">
               Create personalized 3D miniatures from your photos. Perfect for couples, families, and anyone looking for a unique bonding experience.
