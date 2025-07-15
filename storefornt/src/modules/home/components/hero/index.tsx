@@ -122,11 +122,14 @@ const Hero = () => {
 
               {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4">
-                <button className="group bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center space-x-2">
+                <a 
+                  href="/store" 
+                  className="group bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center space-x-2"
+                >
                   <Upload size={20} />
                   <span>Upload Photos - $89</span>
                   <ArrowRight className="group-hover:translate-x-1 transition-transform" size={20} />
-                </button>
+                </a>
                 
                 <button className="border-2 border-gray-200 hover:border-gray-300 bg-white/50 backdrop-blur-sm hover:bg-white/70 text-gray-700 px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 flex items-center justify-center space-x-2">
                   <Play size={20} />
@@ -177,9 +180,12 @@ const Hero = () => {
                     <p className="text-gray-600 mb-4 max-w-sm">
                       Drop 1-4 high-quality photos here to create your personalized 3D miniatures
                     </p>
-                    <button className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-6 py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 shadow-lg">
+                    <a 
+                      href="/store"
+                      className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-6 py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 shadow-lg inline-block"
+                    >
                       Choose Photos
-                    </button>
+                    </a>
                     <p className="text-sm text-gray-500 mt-3">Or drag and drop files here</p>
                   </div>
                 </div>

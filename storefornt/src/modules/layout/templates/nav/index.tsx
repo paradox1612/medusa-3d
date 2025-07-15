@@ -74,16 +74,9 @@ export default async function Nav() {
               {/* Additional Nav Items */}
               <LocalizedClientLink
                 className="hover:text-purple-600 transition-colors duration-200 font-medium px-3 py-2 rounded-lg hover:bg-purple-50"
-                href="/store"
+                href="/gallery"
               >
-                Upload Photo
-              </LocalizedClientLink>
-              
-              <LocalizedClientLink
-                className="hover:text-purple-600 transition-colors duration-200 font-medium px-3 py-2 rounded-lg hover:bg-purple-50"
-                href="/store"
-              >
-                Choose Photo
+                Gallery
               </LocalizedClientLink>
               
               <LocalizedClientLink
