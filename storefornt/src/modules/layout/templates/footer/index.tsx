@@ -70,9 +70,9 @@ export default async function Footer() {
                 <li>
                   <LocalizedClientLink
                     className="hover:text-purple-600 transition-colors"
-                    href="/contact"
+                    href="/about-us"
                   >
-                    Contact Us
+                    About Us
                   </LocalizedClientLink>
                 </li>
                 <li>
@@ -97,6 +97,14 @@ export default async function Footer() {
                     href="/account"
                   >
                     My Account
+                  </LocalizedClientLink>
+                </li>
+                <li>
+                  <LocalizedClientLink
+                    className="hover:text-purple-600 transition-colors"
+                    href="/refund-policy"
+                  >
+                    Refund Policy
                   </LocalizedClientLink>
                 </li>
               </ul>
