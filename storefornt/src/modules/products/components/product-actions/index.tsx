@@ -156,14 +156,7 @@ export default function ProductActions({
   // Listen for 3D model events from Product3DSection via custom events
   useEffect(() => {
     const handleModelGenerated = (event: CustomEvent) => {
-      console.log("🎭 ProductActions received 3D model data:", event.detail)
-      console.log("🔍 Detailed inspection of received data:", {
-        hasData: !!event.detail,
-        dataType: typeof event.detail,
-        keys: Object.keys(event.detail || {}),
-        modelUrl: event.detail?.model_url,
-        predictionId: event.detail?.prediction_id
-      })
+      console.log("🎭 ProductActions received 3D model data")
       setGenerated3DModel(event.detail)
       setIs3DGenerating(false)
     }
@@ -220,13 +213,6 @@ export default function ProductActions({
         {/* 3D Model Status - Only for 3D products */}
         {needs3D && (
           <div className="space-y-4">
-            {/* Debug Status - Remove this after debugging */}
-            <div className="p-2 bg-gray-100 border rounded text-xs">
-              <strong>Debug:</strong> 3DGen: {is3DGenerating ? 'YES' : 'NO'}, 
-              HasModel: {generated3DModel ? 'YES' : 'NO'},
-              ModelURL: {generated3DModel?.model_url ? 'YES' : 'NO'}
-            </div>
-
             {is3DGenerating && (
               <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
                 <div className="flex items-center justify-center gap-2 mb-2">

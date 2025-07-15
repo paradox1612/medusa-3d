@@ -3,6 +3,7 @@ import Summary from "./summary"
 import EmptyCartMessage from "../components/empty-cart-message"
 import SignInPrompt from "../components/sign-in-prompt"
 import Divider from "@modules/common/components/divider"
+import ExpressCheckoutWrapper from "../components/express-checkout /wrapper"
 import { HttpTypes } from "@medusajs/types"
 
 const CartTemplate = ({
@@ -30,6 +31,11 @@ const CartTemplate = ({
               <div className="flex flex-col gap-y-8 sticky top-12">
                 {cart && cart.region && (
                   <>
+                    {/* Express Checkout */}
+                    <div className="bg-white py-6">
+                      <ExpressCheckoutWrapper cart={cart as any} />
+                    </div>
+                    
                     <div className="bg-white py-6">
                       <Summary cart={cart as any} />
                     </div>

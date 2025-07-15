@@ -227,20 +227,10 @@ export async function addToCartWith3D({
     throw new Error("Missing variant ID when adding to cart")
   }
 
-  console.log("🛒 addToCartWith3D called with complete API response:", {
+  console.log("🛒 Adding to cart with 3D model:", {
     variantId,
-    quantity,
-    countryCode,
-    modelData: modelData // Log the complete response
-  })
-
-  console.log("🔍 Validating modelData structure:", {
     hasModelData: !!modelData,
-    modelDataType: typeof modelData,
-    modelUrl: modelData?.model_url,
-    predictionId: modelData?.prediction_id,
-    uploadedImages: modelData?.uploaded_images?.length || 0,
-    allKeys: Object.keys(modelData || {})
+    modelUrl: modelData?.model_url
   })
 
   const cart = await getOrSetCart(countryCode)
@@ -274,24 +264,10 @@ export async function addToCartWith3D({
     })
   }
 
-  console.log("📦 Creating line item with metadata:", lineItemMetadata)
-  console.log("🔍 Metadata breakdown:", {
-    hasApiResponse: !!modelData,
-    modelUrlLength: lineItemMetadata.model_url.length,
-    predictionIdLength: lineItemMetadata.prediction_id.length,
-    uploadedImagesCount: modelData?.uploaded_images?.length || 0
-  })
+  console.log("📦 Creating line item with 3D model metadata")
 
   // Create line item with 3D model metadata
   try {
-    console.log("📤 About to create line item with:", {
-      cartId: cart.id,
-      variantId,
-      quantity,
-      metadataKeys: Object.keys(lineItemMetadata),
-      hasHeaders: !!headers
-    })
-
     const result = await sdk.store.cart.createLineItem(
       cart.id,
       {
@@ -303,11 +279,7 @@ export async function addToCartWith3D({
       headers
     )
 
-    console.log("✅ Line item created successfully with 3D model metadata:", {
-      success: true,
-      lineItemId: result?.cart?.items?.[result.cart.items.length - 1]?.id,
-      totalItems: result?.cart?.items?.length
-    })
+    console.log("✅ Line item created successfully with 3D model metadata")
     
     const cartCacheTag = await getCacheTag("carts")
     revalidateTag(cartCacheTag)
