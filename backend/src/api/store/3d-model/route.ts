@@ -65,6 +65,14 @@ export async function POST(
       )
     }
 
+    // Store compressed image data for response
+    const compressedImageData: Array<{
+      buffer: Buffer
+      filename: string
+      originalSize: number
+      compressedSize: number
+    }> = []
+
     // Compress images using Sharp (resize to max 1024x1024 and compress to <3MB)
     const compressedFiles = await Promise.all(
       files.map(async (file, index) => {
@@ -79,6 +87,9 @@ export async function POST(
               progressive: true 
             })
             .toBuffer()
+
+          let finalBuffer = compressedBuffer
+          let finalSize = compressedBuffer.length
 
           // Check if compressed size is still > 3MB
           const sizeInMB = compressedBuffer.length / (1024 * 1024)
@@ -95,27 +106,31 @@ export async function POST(
               })
               .toBuffer()
             
-            console.log(`Image ${index + 1} compressed from ${(file.buffer.length / (1024 * 1024)).toFixed(2)}MB to ${(furtherCompressed.length / (1024 * 1024)).toFixed(2)}MB`)
+            finalBuffer = furtherCompressed
+            finalSize = furtherCompressed.length
             
-            return {
-              filename: `compressed_${index + 1}_${file.originalname.replace(/\.[^/.]+$/, ".jpg")}`,
-              mimeType: "image/jpeg",
-              content: furtherCompressed.toString("binary"),
-              access: "public" as const,
-              originalSize: file.buffer.length,
-              compressedSize: furtherCompressed.length
-            }
+            console.log(`Image ${index + 1} compressed from ${(file.buffer.length / (1024 * 1024)).toFixed(2)}MB to ${(furtherCompressed.length / (1024 * 1024)).toFixed(2)}MB`)
+          } else {
+            console.log(`Image ${index + 1} compressed from ${(file.buffer.length / (1024 * 1024)).toFixed(2)}MB to ${(compressedBuffer.length / (1024 * 1024)).toFixed(2)}MB`)
           }
 
-          console.log(`Image ${index + 1} compressed from ${(file.buffer.length / (1024 * 1024)).toFixed(2)}MB to ${(compressedBuffer.length / (1024 * 1024)).toFixed(2)}MB`)
+          const filename = `compressed_${index + 1}_${file.originalname.replace(/\.[^/.]+$/, ".jpg")}`
+          
+          // Store compressed image data for response
+          compressedImageData.push({
+            buffer: finalBuffer,
+            filename: filename,
+            originalSize: file.buffer.length,
+            compressedSize: finalSize
+          })
 
           return {
-            filename: `compressed_${index + 1}_${file.originalname.replace(/\.[^/.]+$/, ".jpg")}`,
+            filename: filename,
             mimeType: "image/jpeg",
-            content: compressedBuffer.toString("binary"),
+            content: finalBuffer.toString("binary"),
             access: "public" as const,
             originalSize: file.buffer.length,
-            compressedSize: compressedBuffer.length
+            compressedSize: finalSize
           }
         } catch (error) {
           console.error(`Error compressing image ${index + 1}:`, error)
@@ -148,6 +163,7 @@ export async function POST(
       multipleViews[2] || null
     ]
     console.log(`uploaded ${imageUrls} images to storage`)
+    
     // Call Synexa AI API
     console.log("Calling Synexa AI API...")
     const synexaResponse = await fetch(`${SYNEXA_BASE_URL}/predictions`, {
@@ -322,7 +338,15 @@ export async function POST(
         model_url: uploadedModelUrl || originalModelUrl, // Use uploaded URL if available, otherwise original
         original_model_url: originalModelUrl, // Keep original for reference
         is_uploaded_to_storage: isUploadedToStorage, // Indicates if model was successfully uploaded to our storage
-        uploaded_images: uploadedFiles.map(file => file.url),
+        
+        // Enhanced uploaded_images with both URL and base64 data
+        uploaded_images: uploadedFiles.map((file, index) => ({
+          url: file.url,
+          filename: file.filename,
+          base64: `data:image/jpeg;base64,${compressedImageData[index]?.buffer.toString('base64')}`,
+          size_mb: (compressedImageData[index]?.compressedSize / (1024 * 1024)).toFixed(2)
+        })),
+        
         compression_stats: compressedFiles.map(file => ({
           filename: file.filename,
           original_size_mb: (file.originalSize / (1024 * 1024)).toFixed(2),
@@ -359,4 +383,4 @@ export async function POST(
       })
     }
   }
-} 
+}

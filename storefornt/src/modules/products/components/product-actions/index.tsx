@@ -6,7 +6,6 @@ import { HttpTypes } from "@medusajs/types"
 import { Button } from "@medusajs/ui"
 import Divider from "@modules/common/components/divider"
 import OptionSelect from "@modules/products/components/product-actions/option-select"
-import Image3DUpload from "@modules/products/components/3d-model-upload"
 import { isEqual } from "lodash"
 import { useParams } from "next/navigation"
 import { useEffect, useMemo, useRef, useState } from "react"
@@ -34,9 +33,12 @@ export default function ProductActions({
 }: ProductActionsProps) {
   const [options, setOptions] = useState<Record<string, string | undefined>>({})
   const [isAdding, setIsAdding] = useState(false)
-  const [show3DUpload, setShow3DUpload] = useState(false)
   const [generated3DModel, setGenerated3DModel] = useState<any | null>(null)
+  const [is3DGenerating, setIs3DGenerating] = useState(false)
   const countryCode = useParams().countryCode as string
+
+  // Check if this product needs 3D functionality
+  const needs3D = product.metadata?.needs_3d_product === "true" || product.metadata?.needs_3d_product === true
 
   // If there is only 1 variant, preselect the options
   useEffect(() => {
@@ -115,6 +117,14 @@ export default function ProductActions({
           countryCode
         })
         
+        console.log("🔍 Verifying 3D model data before adding to cart:", {
+          hasModelData: !!generated3DModel,
+          modelUrl: generated3DModel?.model_url,
+          predictionId: generated3DModel?.prediction_id,
+          dataKeys: Object.keys(generated3DModel || {}),
+          fullData: generated3DModel
+        })
+        
         // Add to cart with 3D model metadata
         await addToCartWith3D({
           variantId: selectedVariant.id,
@@ -143,11 +153,42 @@ export default function ProductActions({
     setIsAdding(false)
   }
 
-  const handle3DModelGenerated = (modelData: any) => {
-    console.log("🎭 Received complete 3D model API response:", modelData)
-    setGenerated3DModel(modelData)
-    setShow3DUpload(false)
-  }
+  // Listen for 3D model events from Product3DSection via custom events
+  useEffect(() => {
+    const handleModelGenerated = (event: CustomEvent) => {
+      console.log("🎭 ProductActions received 3D model data:", event.detail)
+      console.log("🔍 Detailed inspection of received data:", {
+        hasData: !!event.detail,
+        dataType: typeof event.detail,
+        keys: Object.keys(event.detail || {}),
+        modelUrl: event.detail?.model_url,
+        predictionId: event.detail?.prediction_id
+      })
+      setGenerated3DModel(event.detail)
+      setIs3DGenerating(false)
+    }
+
+    const handleModelGenerationStarted = () => {
+      console.log("🔄 ProductActions: 3D model generation started")
+      setIs3DGenerating(true)
+    }
+
+    const handleModelGenerationError = () => {
+      console.log("❌ ProductActions: 3D model generation failed")
+      setIs3DGenerating(false)
+    }
+
+    // Listen for custom events from Product3DSection
+    window.addEventListener('3d-model-generated', handleModelGenerated as EventListener)
+    window.addEventListener('3d-model-generation-started', handleModelGenerationStarted)
+    window.addEventListener('3d-model-generation-error', handleModelGenerationError)
+
+    return () => {
+      window.removeEventListener('3d-model-generated', handleModelGenerated as EventListener)
+      window.removeEventListener('3d-model-generation-started', handleModelGenerationStarted)
+      window.removeEventListener('3d-model-generation-error', handleModelGenerationError)
+    }
+  }, [])
 
   return (
     <>
@@ -176,51 +217,65 @@ export default function ProductActions({
 
         <ProductPrice product={product} variant={selectedVariant} />
 
-        {/* 3D Model Section */}
-        <div className="space-y-4">
-      
-
-          {show3DUpload && (
-            <div className="space-y-4">
-              <Image3DUpload onModelGenerated={handle3DModelGenerated} />
-     
+        {/* 3D Model Status - Only for 3D products */}
+        {needs3D && (
+          <div className="space-y-4">
+            {/* Debug Status - Remove this after debugging */}
+            <div className="p-2 bg-gray-100 border rounded text-xs">
+              <strong>Debug:</strong> 3DGen: {is3DGenerating ? 'YES' : 'NO'}, 
+              HasModel: {generated3DModel ? 'YES' : 'NO'},
+              ModelURL: {generated3DModel?.model_url ? 'YES' : 'NO'}
             </div>
-          )}
 
-          {generated3DModel && (
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-green-600">✅</span>
-                <span className="font-medium text-green-800">3D Model Ready!</span>
+            {is3DGenerating && (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-600"></div>
+                  <span className="font-medium text-yellow-800">Generating 3D Model...</span>
+                </div>
+                <p className="text-sm text-yellow-700">
+                  Please wait while we create your personalized 3D model
+                </p>
               </div>
-              <p className="text-sm text-green-700 mb-3">
-                Your custom 3D model has been generated and will be included with this product.
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => window.open(generated3DModel.model_url, '_blank')}
-                  variant="secondary"
-                  className="text-xs"
-                  size="small"
-                >
-                  Preview 3D Model
-                </Button>
-                <Button
-                  onClick={() => {
-                    setGenerated3DModel(null)
-                    setShow3DUpload(true)
-                  }}
-                  variant="secondary"
-                  className="text-xs"
-                  size="small"
-                >
-                  Generate New
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
+            )}
 
+            {!generated3DModel && !is3DGenerating && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-center">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <span className="text-2xl">🎭</span>
+                  <span className="font-medium text-blue-800">3D Customizable Product</span>
+                </div>
+                <p className="text-sm text-blue-700">
+                  Use the 3D gallery above to create your personalized model
+                </p>
+              </div>
+            )}
+
+            {generated3DModel && (
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-green-600">✅</span>
+                  <span className="font-medium text-green-800">3D Model Ready!</span>
+                </div>
+                <p className="text-sm text-green-700 mb-3">
+                  Your custom 3D model has been generated and will be included with this product.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => window.open(generated3DModel.model_url, '_blank')}
+                    variant="secondary"
+                    className="text-xs"
+                    size="small"
+                  >
+                    Preview 3D Model
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Add to Cart Button */}
         <Button
           onClick={handleAddToCart}
           disabled={
@@ -228,21 +283,28 @@ export default function ProductActions({
             !selectedVariant ||
             !!disabled ||
             isAdding ||
-            !isValidVariant
+            !isValidVariant ||
+            (needs3D && !generated3DModel) || // Disable for 3D products without model
+            is3DGenerating // Disable while 3D is generating
           }
           variant="primary"
           className="w-full h-10"
-          isLoading={isAdding}
+          isLoading={isAdding || is3DGenerating}
           data-testid="add-product-button"
         >
           {!selectedVariant && !options
             ? "Select variant"
             : !inStock || !isValidVariant
             ? "Out of stock"
+            : is3DGenerating
+            ? "Generating 3D Model..."
+            : needs3D && !generated3DModel
+            ? "Create 3D Model First"
             : generated3DModel
             ? "Add to cart with 3D Model"
             : "Add to cart"}
         </Button>
+        {/* Mobile Actions */}
         <MobileActions
           product={product}
           variant={selectedVariant}
@@ -250,9 +312,9 @@ export default function ProductActions({
           updateOptions={setOptionValue}
           inStock={inStock}
           handleAddToCart={handleAddToCart}
-          isAdding={isAdding}
+          isAdding={isAdding || is3DGenerating}
           show={!inView}
-          optionsDisabled={!!disabled || isAdding}
+          optionsDisabled={!!disabled || isAdding || is3DGenerating}
         />
       </div>
     </>

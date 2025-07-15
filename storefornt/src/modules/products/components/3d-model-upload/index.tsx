@@ -189,12 +189,26 @@ const Image3DUpload = ({ onModelGenerated, onProcessingStarted, onError }: Image
     
     if (state?.success && 'data' in state) {
       console.log("✅ 3D Model generated successfully:", state.data)
+      console.log("🔍 State data inspection:", {
+        hasStateData: !!state.data,
+        stateDataType: typeof state.data,
+        stateDataKeys: Object.keys(state.data || {}),
+        modelUrl: state.data?.model_url,
+        predictionId: state.data?.prediction_id
+      })
+      
       setIsProcessing(false)
       setGeneratedModel(state.data!)
       setShowPreview(true) // Automatically show preview when model is ready
       
       // Notify parent component IMMEDIATELY
       console.log("📦 Passing generated model data to parent component to be added to cart metadata:", state.data)
+      console.log("🔍 About to call onModelGenerated with:", {
+        hasCallback: !!onModelGenerated,
+        dataToPass: state.data,
+        dataKeys: Object.keys(state.data || {})
+      })
+      
       onModelGenerated(state.data!)
       
       // Reset form and clean up URLs

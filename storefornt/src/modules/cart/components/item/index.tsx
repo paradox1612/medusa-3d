@@ -52,20 +52,42 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
   const modelUrl = item.metadata?.model_url as string
   const generatedAt = item.metadata?.generated_at as string
   const predictionId = item.metadata?.prediction_id as string
-  const apiResponse = item.metadata?.api_response ? JSON.parse(item.metadata.api_response as string) : null
   
-  // Debug: Log the complete API response stored in metadata
-  if (has3DModel && apiResponse) {
-    console.log("🎭 Cart item with complete 3D API response:", {
+  // Parse uploaded image URLs (no longer base64)
+  let uploadedImageUrls: string[] = []
+  try {
+    if (item.metadata?.uploaded_image_urls && typeof item.metadata.uploaded_image_urls === 'string') {
+      uploadedImageUrls = JSON.parse(item.metadata.uploaded_image_urls)
+    }
+  } catch (error) {
+    console.warn("Failed to parse uploaded image URLs:", error)
+  }
+
+  // Parse model info
+  let modelInfo: Record<string, any> = {}
+  try {
+    if (item.metadata?.model_info && typeof item.metadata.model_info === 'string') {
+      modelInfo = JSON.parse(item.metadata.model_info)
+    }
+  } catch (error) {
+    console.warn("Failed to parse model info:", error)
+  }
+  
+  // Debug: Log the 3D model metadata
+  if (has3DModel) {
+    console.log("🎭 Cart item with 3D model:", {
       productTitle: item.product_title,
-      apiResponse: apiResponse
+      modelUrl,
+      predictionId,
+      imageUrls: uploadedImageUrls,
+      modelInfo
     })
   }
 
-  const displayThumbnail =
-    has3DModel && apiResponse?.uploaded_images?.[0]
-      ? apiResponse.uploaded_images[0]
-      : item.thumbnail
+  // Use first uploaded image as thumbnail if available
+  const displayThumbnail = (has3DModel && uploadedImageUrls[0]) 
+    ? uploadedImageUrls[0] 
+    : item.thumbnail
 
   return (
     <Table.Row className="w-full" data-testid="product-row">
@@ -115,7 +137,7 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
                     productTitle={item.product_title || ''}
                     generatedAt={generatedAt}
                     predictionId={predictionId}
-                    apiResponse={apiResponse}
+                    apiResponse={modelInfo}
                   />
                   <button
                     onClick={() => {

@@ -42,20 +42,48 @@ const Product3DSection: React.FC<Product3DSectionProps> = ({
 
   const handleModelGenerated = useCallback((modelData: ModelData) => {
     console.log("🎯 3D Model generated successfully:", modelData)
+    console.log("🔍 Model data inspection:", {
+      hasData: !!modelData,
+      dataType: typeof modelData,
+      keys: Object.keys(modelData || {}),
+      modelUrl: modelData?.model_url,
+      predictionId: modelData?.prediction_id,
+      uploadedImagesCount: modelData?.uploaded_images?.length || 0
+    })
+    
     setCurrentModel(modelData)
     setIsGenerating(false)
     setShowUpload(false)
     setError(null)
+    
+    // Emit custom event for ProductActions to listen
+    const event = new CustomEvent('3d-model-generated', { detail: modelData })
+    window.dispatchEvent(event)
+    console.log("📡 Emitted 3d-model-generated event with data:", {
+      eventType: event.type,
+      hasDetail: !!event.detail,
+      detailKeys: Object.keys(event.detail || {})
+    })
   }, [])
 
   const handleUploadStarted = useCallback(() => {
     setIsGenerating(true)
     setError(null)
+    
+    // Emit custom event for ProductActions to listen
+    const event = new CustomEvent('3d-model-generation-started')
+    window.dispatchEvent(event)
+    console.log("📡 Emitted 3d-model-generation-started event")
   }, [])
 
   const handleError = useCallback((errorMessage: string) => {
     setIsGenerating(false)
     setError(errorMessage)
+    
+    // Emit custom event for ProductActions to listen
+    const event = new CustomEvent('3d-model-generation-error', { detail: errorMessage })
+    window.dispatchEvent(event)
+    console.log("📡 Emitted 3d-model-generation-error event")
   }, [])
 
   const handleRetry = useCallback(() => {

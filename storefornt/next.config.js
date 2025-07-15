@@ -49,6 +49,10 @@ const nextConfig = {
         hostname: "medusa-server-testing.s3.us-east-1.amazonaws.com",
       },
       {
+        protocol: "https",
+        hostname: "minio.mersate.com",
+      },
+      {
         protocol: 'https',
         hostname: 'pub-107b68c401754741b4d4ba0de2812aae.r2.dev',
         port: '',

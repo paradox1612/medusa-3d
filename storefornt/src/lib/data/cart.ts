@@ -165,6 +165,53 @@ export async function addToCart({
     .catch(medusaError)
 }
 
+
+export async function addToCartWith3DModel({
+  variantId,
+  quantity,
+  countryCode,
+  metadata, // <-- Add metadata to the function signature
+}: {
+  variantId: string
+  quantity: number
+  countryCode: string
+  metadata?: Record<string, any> // <-- Make metadata optional
+}) {
+  if (!variantId) {
+    throw new Error("Missing variant ID when adding to cart")
+  }
+
+  const cart = await getOrSetCart(countryCode)
+
+  if (!cart) {
+    throw new Error("Error retrieving or creating cart")
+  }
+
+  const headers = {
+    ...(await getAuthHeaders()),
+  }
+
+  await sdk.store.cart
+    .createLineItem(
+      cart.id,
+      {
+        variant_id: variantId,
+        quantity,
+        ...(metadata ? { metadata } : {}), // <-- Pass metadata if provided
+      },
+      {},
+      headers
+    )
+    .then(async () => {
+      const cartCacheTag = await getCacheTag("carts")
+      revalidateTag(cartCacheTag)
+
+      const fulfillmentCacheTag = await getCacheTag("fulfillment")
+      revalidateTag(fulfillmentCacheTag)
+    })
+    .catch(medusaError)
+}
+
 export async function addToCartWith3D({
   variantId,
   quantity,
@@ -187,6 +234,15 @@ export async function addToCartWith3D({
     modelData: modelData // Log the complete response
   })
 
+  console.log("🔍 Validating modelData structure:", {
+    hasModelData: !!modelData,
+    modelDataType: typeof modelData,
+    modelUrl: modelData?.model_url,
+    predictionId: modelData?.prediction_id,
+    uploadedImages: modelData?.uploaded_images?.length || 0,
+    allKeys: Object.keys(modelData || {})
+  })
+
   const cart = await getOrSetCart(countryCode)
 
   if (!cart) {
@@ -197,23 +253,46 @@ export async function addToCartWith3D({
     ...(await getAuthHeaders()),
   }
 
+  // Extract only essential data for cart metadata (avoid large base64 images)
+  const imageUrls = modelData?.uploaded_images?.map((img: any) => img.url || img) || []
+  
   const lineItemMetadata = {
     has_3d_model: true,
-    // Store the complete API response
-    api_response: JSON.stringify(modelData),
-    // Also store individual fields for easy access
-    model_url: modelData.model_url,
-    prediction_id: modelData.prediction_id,
-    uploaded_images: JSON.stringify(modelData.uploaded_images),
-    compression_stats: JSON.stringify(modelData.compression_stats),
+    // Store only essential fields (NOT the complete API response)
+    model_url: modelData?.model_url || '',
+    prediction_id: modelData?.prediction_id || '',
+    // Store only image URLs, not base64 data
+    uploaded_image_urls: JSON.stringify(imageUrls),
+    processing_time: modelData?.processing_time || null,
     generated_at: new Date().toISOString(),
+    // Store a minimal summary instead of full API response
+    model_info: JSON.stringify({
+      status: modelData?.status || 'succeeded',
+      created_at: modelData?.created_at,
+      completed_at: modelData?.completed_at,
+      upload_info: modelData?.upload_info || {}
+    })
   }
 
   console.log("📦 Creating line item with metadata:", lineItemMetadata)
+  console.log("🔍 Metadata breakdown:", {
+    hasApiResponse: !!modelData,
+    modelUrlLength: lineItemMetadata.model_url.length,
+    predictionIdLength: lineItemMetadata.prediction_id.length,
+    uploadedImagesCount: modelData?.uploaded_images?.length || 0
+  })
 
   // Create line item with 3D model metadata
-  await sdk.store.cart
-    .createLineItem(
+  try {
+    console.log("📤 About to create line item with:", {
+      cartId: cart.id,
+      variantId,
+      quantity,
+      metadataKeys: Object.keys(lineItemMetadata),
+      hasHeaders: !!headers
+    })
+
+    const result = await sdk.store.cart.createLineItem(
       cart.id,
       {
         variant_id: variantId,
@@ -223,19 +302,30 @@ export async function addToCartWith3D({
       {},
       headers
     )
-    .then(async () => {
-      console.log("✅ Line item created successfully with 3D model metadata")
-      
-      const cartCacheTag = await getCacheTag("carts")
-      revalidateTag(cartCacheTag)
 
-      const fulfillmentCacheTag = await getCacheTag("fulfillment")
-      revalidateTag(fulfillmentCacheTag)
+    console.log("✅ Line item created successfully with 3D model metadata:", {
+      success: true,
+      lineItemId: result?.cart?.items?.[result.cart.items.length - 1]?.id,
+      totalItems: result?.cart?.items?.length
     })
-    .catch((error) => {
-      console.error("❌ Failed to create line item with 3D model:", error)
-      throw error
+    
+    const cartCacheTag = await getCacheTag("carts")
+    revalidateTag(cartCacheTag)
+
+    const fulfillmentCacheTag = await getCacheTag("fulfillment")
+    revalidateTag(fulfillmentCacheTag)
+
+    return result
+  } catch (error: any) {
+    console.error("❌ Failed to create line item with 3D model:", {
+      error: error?.message || error,
+      stack: error?.stack,
+      variantId,
+      cartId: cart.id,
+      metadata: lineItemMetadata
     })
+    throw error
+  }
 }
 
 export async function updateLineItem({
