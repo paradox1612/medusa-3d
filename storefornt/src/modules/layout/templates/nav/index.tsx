@@ -65,18 +65,25 @@ export default async function Nav() {
             <div className="hidden small:flex items-center gap-x-6 h-full">
               <LocalizedClientLink
                 className="hover:text-purple-600 transition-colors duration-200 font-medium px-3 py-2 rounded-lg hover:bg-purple-50"
-                href="/account"
-                data-testid="nav-account-link"
+                href="/store"
+                data-testid="nav-store-link"
               >
-                Account
+                Store
               </LocalizedClientLink>
               
               {/* Additional Nav Items */}
               <LocalizedClientLink
                 className="hover:text-purple-600 transition-colors duration-200 font-medium px-3 py-2 rounded-lg hover:bg-purple-50"
-                href="/gallery"
+                href="/store"
               >
-                Gallery
+                Upload Photo
+              </LocalizedClientLink>
+              
+              <LocalizedClientLink
+                className="hover:text-purple-600 transition-colors duration-200 font-medium px-3 py-2 rounded-lg hover:bg-purple-50"
+                href="/store"
+              >
+                Choose Photo
               </LocalizedClientLink>
               
               <LocalizedClientLink
