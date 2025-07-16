@@ -198,14 +198,14 @@ const Model3DViewer: React.FC<Model3DViewerProps> = ({
             <span className="text-xs text-gray-500">GLB Format</span>
           </div>
           <div className="flex items-center gap-2">
-            <Button
+            {/* <Button
               onClick={handleDownload}
               variant="secondary"
               className="flex items-center gap-1 text-xs px-2 py-1 h-auto"
             >
               <Download className="w-3 h-3" />
               Download
-            </Button>
+            </Button> */}
             <Button
               onClick={toggleFullscreen}
               variant="secondary"

@@ -139,7 +139,7 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
                     predictionId={predictionId}
                     apiResponse={modelInfo}
                   />
-                  <button
+                  {/* <button
                     onClick={() => {
                       const link = document.createElement('a')
                       link.href = modelUrl
@@ -149,7 +149,7 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
                     className="text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded hover:bg-gray-200 transition-colors"
                   >
                     💾 Download
-                  </button>
+                  </button> */}
                 </div>
               )}
               

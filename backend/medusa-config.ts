@@ -3,7 +3,19 @@ import { loadEnv, defineConfig } from '@medusajs/framework/utils'
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
 module.exports = defineConfig({
+
+  admin: {
+    vite: () => {
+      return {
+        server: {
+          allowedHosts: [".bt.minimica.com"], // replace ".medusa-server-testing.com" with ".yourdomain.com"
+        },
+      };
+    },
+  },
+
   projectConfig: {
+
     databaseUrl: process.env.DATABASE_URL,
     http: {
       storeCors: process.env.STORE_CORS!,
@@ -11,8 +23,9 @@ module.exports = defineConfig({
       authCors: process.env.AUTH_CORS!,
       jwtSecret: process.env.JWT_SECRET || "supersecret",
       cookieSecret: process.env.COOKIE_SECRET || "supersecret",
-    }
+    },
   },
+  
   modules:[
     {
       resolve: '@medusajs/medusa/file',
