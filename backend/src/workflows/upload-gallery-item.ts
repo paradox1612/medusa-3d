@@ -27,45 +27,57 @@ export type UploadGalleryItemWorkflowInput = {
 }
 
 // Step 1: Upload and process image
-// In upload-gallery-item.ts
 export const uploadAndProcessImageStep = createStep(
-    "upload-and-process-image-step",
-    async (input: UploadGalleryItemStepInput, { container }) => {
-      // Reconstruct the buffer if it was serialized
-      const fileBuffer = input.fileBuffer && input.fileBuffer.type === 'Buffer' && Array.isArray(input.fileBuffer.data)
-        ? Buffer.from(input.fileBuffer.data)
-        : input.fileBuffer;
-  
-      const { fileName, fileMime } = input;
+  "upload-and-process-image-step",
+  async (input: UploadGalleryItemStepInput, { container }) => {
+    // Handle Buffer properly - check if it's already a Buffer or needs reconstruction
+    let fileBuffer: Buffer;
+    
+    if (Buffer.isBuffer(input.fileBuffer)) {
+      // It's already a proper Buffer
+      fileBuffer = input.fileBuffer;
+    } else if (input.fileBuffer && typeof input.fileBuffer === 'object') {
+      // Handle serialized Buffer (JSON representation)
+      const bufferLike = input.fileBuffer as any;
+      if (bufferLike.type === 'Buffer' && Array.isArray(bufferLike.data)) {
+        fileBuffer = Buffer.from(bufferLike.data);
+      } else if (bufferLike.data && Array.isArray(bufferLike.data)) {
+        fileBuffer = Buffer.from(bufferLike.data);
+      } else {
+        throw new Error("Invalid buffer format received");
+      }
+    } else {
+      throw new Error("No valid buffer data received");
+    }
+
+    const { fileName, fileMime } = input;
+    
+    console.log('Workflow input:', {
+      bufferType: fileBuffer?.constructor?.name,
+      bufferLength: fileBuffer?.length,
+      bufferSample: fileBuffer?.toString('hex', 0, 20)
+    });
+
+    try {
+      // Process image with Sharp if it's an image
+      let processedBuffer = fileBuffer;
+      let processedMime = fileMime;
+      let processedExt = path.extname(fileName).toLowerCase();
       
-      console.log('Workflow input:', {
-        bufferType: fileBuffer?.constructor?.name,
-        bufferLength: fileBuffer?.length,
-        bufferSample: fileBuffer?.toString('hex', 0, 20)
-      });
-  
-      try {
-        // Process image with Sharp if it's an image
-        let processedBuffer = fileBuffer;
-        let processedMime = fileMime;
-        let processedExt = path.extname(fileName).toLowerCase();
-        
-        if (fileMime.startsWith('image/')) {
-          processedBuffer = await sharp(fileBuffer)
-            .resize(1920, 1080, { 
-              fit: 'inside', 
-              withoutEnlargement: true 
-            })
-            .jpeg({ 
-              quality: 85,
-              progressive: true 
-            })
-            .toBuffer();
-          processedMime = 'image/jpeg';
-          processedExt = '.jpg';
-        }
-  
-        // Rest of your code...
+      if (fileMime.startsWith('image/')) {
+        processedBuffer = await sharp(fileBuffer)
+          .resize(1920, 1080, { 
+            fit: 'inside', 
+            withoutEnlargement: true 
+          })
+          .jpeg({ 
+            quality: 85,
+            progressive: true 
+          })
+          .toBuffer();
+        processedMime = 'image/jpeg';
+        processedExt = '.jpg';
+      }
 
       // Generate unique filename with original extension for non-images, jpg for images
       const uniqueName = `${uuidv4()}${processedExt}`

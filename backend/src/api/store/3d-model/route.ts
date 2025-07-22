@@ -342,7 +342,7 @@ export async function POST(
         // Enhanced uploaded_images with both URL and base64 data
         uploaded_images: uploadedFiles.map((file, index) => ({
           url: file.url,
-          filename: file.filename,
+          filename: file.id,
           base64: `data:image/jpeg;base64,${compressedImageData[index]?.buffer.toString('base64')}`,
           size_mb: (compressedImageData[index]?.compressedSize / (1024 * 1024)).toFixed(2)
         })),
