@@ -52,6 +52,7 @@ COPY --from=builder /app/.medusa/server ./
 
 # Copy package.json for npm scripts
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
 # Create uploads directory and set permissions
 RUN mkdir -p uploads && chown -R medusa:nodejs /app
