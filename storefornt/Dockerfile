@@ -1,15 +1,15 @@
 # Stage 1: Install dependencies
 FROM node:18-alpine AS deps
 WORKDIR /app
-COPY package*.json yarn.lock ./
-RUN yarn install --frozen-lockfile
+COPY package*.json package-lock.json* ./
+RUN npm ci
 
 # Stage 2: Build the app
 FROM node:18-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN yarn build
+RUN npm run build
 
 # Stage 3: Run the app
 FROM node:18-alpine AS runner
@@ -21,4 +21,4 @@ COPY --from=builder /app/package.json ./package.json
 
 ENV NODE_ENV=production
 EXPOSE 8000
-CMD ["yarn", "start"]
+CMD ["npm", "start"]
