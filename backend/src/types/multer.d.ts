@@ -3,25 +3,25 @@
 import { MedusaRequest } from "@medusajs/framework/http"
 
 declare global {
-  namespace Express {
-    interface Multer {
-      File: {
-        fieldname: string
-        originalname: string
-        encoding: string
-        mimetype: string
-        buffer: Buffer
-        size: number
+    namespace Express {
+      namespace Multer {
+        interface File {
+          fieldname: string
+          originalname: string
+          encoding: string
+          mimetype: string
+          buffer: Buffer
+          size: number
+        }
       }
     }
   }
-}
-
-declare module "@medusajs/framework/http" {
-  interface MedusaRequest {
-    file?: Express.Multer.File
-    files?: Express.Multer.File[]
+  
+  declare module "@medusajs/framework/http" {
+    interface MedusaRequest {
+      file?: Express.Multer.File
+      files?: Express.Multer.File[]
+    }
   }
-}
-
-export {}
+  
+  export {}
