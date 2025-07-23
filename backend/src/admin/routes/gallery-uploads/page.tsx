@@ -5,7 +5,7 @@ import { DataTable, createDataTableColumnHelper, useDataTable, DataTablePaginati
 import { defineRouteConfig } from "@medusajs/admin-sdk"
 import { Button, Select, Text, Container, Heading } from "@medusajs/ui"
 import { PencilSquare, Photo } from "@medusajs/icons"
-import { sdk } from "../../../lib/sdk"
+import { sdk } from "../../lib/sdk"
 
 type GalleryUpload = {
   id: string

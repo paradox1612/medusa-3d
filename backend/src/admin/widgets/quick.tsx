@@ -2,7 +2,7 @@ import { defineWidgetConfig } from "@medusajs/admin-sdk"
 import { DetailWidgetProps, AdminProduct } from "@medusajs/framework/types"
 import { Container, Heading, Switch, Text, toast } from "@medusajs/ui"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { sdk } from "../../lib/sdk"
+import { sdk } from "../lib/sdk"
 import { useState } from "react"
 
 const Product3DToggleWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) => {
