@@ -66,3 +66,5 @@ jobs:
           build-args: |
             NODE_ENV=production
             NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY }}
+            NEXT_PUBLIC_STRIPE_KEY=${{ secrets.NEXT_PUBLIC_STRIPE_KEY }}
+            NEXT_PUBLIC_DEFAULT_REGION=us

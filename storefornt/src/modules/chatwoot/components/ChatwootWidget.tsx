@@ -35,7 +35,7 @@ export default function ChatwootWidget() {
 
     // 2-B. Dynamically inject the SDK script
     ;(function (d, t) {
-      const BASE_URL = "https://chat.minimica.com"
+      const BASE_URL = process.env.NEXT_PUBLIC_CHATWOOT_BASE_URL || "https://chat.minimica.com"
 
       // Cast so TypeScript knows we’re dealing with <script> element
       const g = d.createElement(t) as HTMLScriptElement
@@ -52,7 +52,7 @@ export default function ChatwootWidget() {
 
       g.onload = () => {
         window.chatwootSDK?.run({
-          websiteToken: "SLCQSguxdzsnr6jeHfkho7Ew",
+          websiteToken: process.env.NEXT_PUBLIC_CHATWOOT_WEBSITE_TOKEN || "SLCQSguxdzsnr6jeHfkho7Ew",
           baseUrl: BASE_URL,
         })
       }
