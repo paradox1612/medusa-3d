@@ -65,7 +65,7 @@ const nextConfig = {
     return [
       {
         source: '/store/:path*',
-        destination: 'https://bt.minimica.com/store/:path*', // Backend API
+        destination: 'https://backend.minimica.com/store/:path*', // Backend API
       },
     ]
   },

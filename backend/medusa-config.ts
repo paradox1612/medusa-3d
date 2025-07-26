@@ -8,7 +8,7 @@ module.exports = defineConfig({
     vite: () => {
       return {
         server: {
-          allowedHosts: [".bt.minimica.com"], // replace ".medusa-server-testing.com" with ".yourdomain.com"
+          allowedHosts: [".backend.minimica.com"], // replace ".medusa-server-testing.com" with ".yourdomain.com"
         },
       };
     },
