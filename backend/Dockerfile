@@ -27,8 +27,8 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build the application
-RUN npm run build
+# Build the application using Medusa CLI
+RUN npx medusa build
 
 # Stage 3: Production Runner
 FROM node:20-alpine AS runner
@@ -37,22 +37,15 @@ WORKDIR /app
 # Install system dependencies and curl for healthcheck
 RUN apk add --no-cache libc6-compat curl
 
-# Install Medusa CLI globally
-RUN npm install -g @medusajs/medusa-cli@latest
-
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 medusa
 
-# Copy production dependencies
-COPY --from=deps /app/node_modules ./node_modules
-
-# Copy built application
+# Copy the built application from the correct location
 COPY --from=builder /app/.medusa/server ./
 
-# Copy package.json for npm scripts
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/tsconfig.json ./tsconfig.json
+# Install production dependencies in the build directory
+RUN npm install --production
 
 # Create uploads directory and set permissions
 RUN mkdir -p uploads && chown -R medusa:nodejs /app
@@ -67,5 +60,8 @@ EXPOSE 9000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:9000/health || exit 1
 
+# Set NODE_ENV to production
+ENV NODE_ENV=production
+
 # Start the application with migration
-CMD ["sh", "-c", "npx medusa db:migrate && npx medusa start"]
+CMD ["sh", "-c", "npx medusa db:migrate && npm run start"]

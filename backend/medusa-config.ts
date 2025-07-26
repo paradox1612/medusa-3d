@@ -15,8 +15,9 @@ module.exports = defineConfig({
   },
 
   projectConfig: {
-
     databaseUrl: process.env.DATABASE_URL,
+    redisUrl: process.env.REDIS_URL,
+    
     http: {
       storeCors: process.env.STORE_CORS!,
       adminCors: process.env.ADMIN_CORS!,
@@ -24,15 +25,29 @@ module.exports = defineConfig({
       jwtSecret: process.env.JWT_SECRET || "supersecret",
       cookieSecret: process.env.COOKIE_SECRET || "supersecret",
     },
+    
+    // Add cookie options for better session handling
+    cookieOptions: {
+      secure: false, // Set to true only if using HTTPS
+      httpOnly: true,
+      sameSite: "lax", // Important for cross-origin authentication
+      maxAge: 24 * 60 * 60 * 1000 * 7, // week
+    },
+    
+    // Add session options
+    sessionOptions: {
+      resave: false,
+      saveUninitialized: false,
+      secret: process.env.COOKIE_SECRET || "supersecret",
+      ttl: 24 * 60 * 60 * 1000 * 7, // week 
+    },
   },
   
   modules:[
     {
       resolve: '@medusajs/medusa/file',
       options: {
-
         providers: [
-
           {
             resolve: '@medusajs/medusa/file-s3',
             id: 's3',
@@ -52,12 +67,11 @@ module.exports = defineConfig({
       },
     },
 
-            {
-              resolve: "./src/modules/gallery",
-            },
+    {
+      resolve: "./src/modules/gallery",
+    },
 
-
-      {
+    {
       resolve: "@medusajs/medusa/payment",
       options: {
         providers: [
@@ -67,7 +81,6 @@ module.exports = defineConfig({
             options: {
               apiKey: process.env.STRIPE_API_KEY,
               automatic_payment_methods: true,
-
             },
           },
         ],
@@ -85,7 +98,5 @@ module.exports = defineConfig({
       resolve: "@medusajs/medusa/workflow-engine-redis",
       options: { redis: { url: process.env.REDIS_URL } },
     },
-
-
   ]
 })
