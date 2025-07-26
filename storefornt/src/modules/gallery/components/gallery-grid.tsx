@@ -108,6 +108,7 @@ export default function GalleryGrid() {
               src={image.image_url}
               alt={image.title || 'Gallery image'}
               fill
+              unoptimized={true}
               className="object-cover transition-transform duration-300 group-hover:scale-105"
               sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
             />
