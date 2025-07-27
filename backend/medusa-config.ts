@@ -8,7 +8,7 @@ module.exports = defineConfig({
     vite: () => {
       return {
         server: {
-          allowedHosts: [".backend.minimica.com"], // replace ".medusa-server-testing.com" with ".yourdomain.com"
+          allowedHosts: ["localhost", "127.0.0.1", "0.0.0.0"], // replace ".medusa-server-testing.com" with ".yourdomain.com"
         },
       };
     },
@@ -43,7 +43,10 @@ module.exports = defineConfig({
     },
   },
   
-  modules:[
+  modules: [
+    {
+      resolve: './modules/threed-job',
+    },
     {
       resolve: '@medusajs/medusa/file',
       options: {
