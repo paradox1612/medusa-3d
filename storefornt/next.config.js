@@ -18,7 +18,7 @@ const nextConfig = {
   reactStrictMode: true,
   experimental: {
     serverActions: {
-      bodySizeLimit: '10mb', // Increase limit for image uploads
+      bodySizeLimit: '40mb', // Increase limit for image uploads
     },
   },
   logging: {
