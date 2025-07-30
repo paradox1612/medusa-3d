@@ -83,8 +83,10 @@ const STORAGE_KEYS = {
 } as const
 
 // Utility functions for persistence
+// Update your StorageUtils object
 const StorageUtils = {
   saveCurrentJob: (data: PersistedJobData): void => {
+    if (typeof window === 'undefined') return; // ✅ Add this check
     try {
       localStorage.setItem(STORAGE_KEYS.CURRENT_JOB, JSON.stringify(data))
     } catch (error) {
@@ -93,6 +95,7 @@ const StorageUtils = {
   },
 
   getCurrentJob: (): PersistedJobData | null => {
+    if (typeof window === 'undefined') return null; // ✅ Add this check
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.CURRENT_JOB)
       return stored ? JSON.parse(stored) : null
@@ -103,6 +106,7 @@ const StorageUtils = {
   },
 
   clearCurrentJob: (): void => {
+    if (typeof window === 'undefined') return; // ✅ Add this check
     try {
       localStorage.removeItem(STORAGE_KEYS.CURRENT_JOB)
     } catch (error) {
@@ -111,6 +115,7 @@ const StorageUtils = {
   },
 
   saveJobHistory: (job: ThreeDJob): void => {
+    if (typeof window === 'undefined') return; // ✅ Add this check
     try {
       const history = StorageUtils.getJobHistory()
       const updatedHistory = [job, ...history.filter(j => j.id !== job.id)].slice(0, 10)
@@ -121,6 +126,7 @@ const StorageUtils = {
   },
 
   getJobHistory: (): ThreeDJob[] => {
+    if (typeof window === 'undefined') return []; // ✅ Add this check
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.JOB_HISTORY)
       return stored ? JSON.parse(stored) : []
@@ -130,7 +136,6 @@ const StorageUtils = {
     }
   }
 }
-
 // 3D Model Preview Component
 const ModelPreview: React.FC<{ modelUrl: string; onClose: () => void }> = ({ modelUrl, onClose }) => {
   const [isLoading, setIsLoading] = useState<boolean>(true)
