@@ -17,13 +17,13 @@ const nextConfig = {
   ],
   reactStrictMode: true,
   serverActions: {
-    bodySizeLimit: '40mb',
+    bodySizeLimit: '50mb',
   },
-  // experimental: {
-  //   serverActions: {
-  //     bodySizeLimit: '40mb', // Increase limit for image uploads
-  //   },
-  // },
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '50mb', // Increase limit for image uploads
+    },
+  },
   logging: {
     fetches: {
       fullUrl: true,
