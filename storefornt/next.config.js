@@ -16,11 +16,14 @@ const nextConfig = {
     // Add any other IPs you're accessing from
   ],
   reactStrictMode: true,
-  experimental: {
-    serverActions: {
-      bodySizeLimit: '40mb', // Increase limit for image uploads
-    },
+  serverActions: {
+    bodySizeLimit: '40mb',
   },
+  // experimental: {
+  //   serverActions: {
+  //     bodySizeLimit: '40mb', // Increase limit for image uploads
+  //   },
+  // },
   logging: {
     fetches: {
       fullUrl: true,
