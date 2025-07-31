@@ -36,7 +36,7 @@ export default function ExpressCheckoutWrapper({
     return null
   }
 
-  // Stripe Elements options for Express Checkout
+  // Stripe Elements options for Express Checkout with shipping
   const options = {
     mode: "payment" as const,
     amount: Math.round((cart.total || 0) * 100), // Convert to cents
@@ -44,6 +44,9 @@ export default function ExpressCheckoutWrapper({
     appearance: {
       theme: "stripe" as const,
     },
+    // Configure for shipping address collection
+    capture_method: 'automatic',
+    payment_method_types: ['card'],
   }
 
   return (

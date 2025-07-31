@@ -60,7 +60,15 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
 
   // Handle final payment confirmation - shipping is already set by now
   const handleExpressCheckout = async (event: any) => {
-    console.log("Express checkout confirmed", event)
+    console.log("Express checkout confirmed", {
+      hasShippingAddress: !!event.shippingAddress,
+      hasShippingRate: !!event.shippingRate,
+      hasBillingDetails: !!event.billingDetails,
+      payerEmail: event.payerEmail,
+      expressPaymentType: event.expressPaymentType,
+      cartHasShippingAddress: !!cart.shipping_address,
+      cartHasBillingAddress: !!cart.billing_address,
+    })
     
     if (!stripe || !elements) {
       setError("Stripe not loaded")
@@ -140,6 +148,9 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
       const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
         elements,
         clientSecret: clientSecret,
+        confirmParams: {
+          return_url: `${window.location.origin}/${countryCode || 'us'}/order/confirmed`,
+        },
         redirect: "if_required",
       })
 
