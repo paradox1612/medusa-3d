@@ -82,11 +82,11 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     console.log(`✅ Received ${files?.length || 0} files for 3D model generation`)
     console.log("📎 Files detail:", files?.map(f => ({ name: f.originalname, size: f.size, type: f.mimetype })))
 
-    // Validate that we have exactly 4 images
-    if (!files?.length || files.length !== 4) {
+    // Validate that we have 1-4 images
+    if (!files?.length || files.length < 1 || files.length > 4) {
       throw new MedusaError(
         MedusaError.Types.INVALID_DATA,
-        "Exactly 4 images are required for 3D model generation"
+        "Between 1 and 4 images are required for 3D model generation"
       )
     }
 

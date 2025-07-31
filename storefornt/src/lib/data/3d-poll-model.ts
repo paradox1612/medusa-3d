@@ -106,13 +106,13 @@ export async function submitThreeDModelGeneration(
   try {
     console.log("📤 Server action: submitThreeDModelGeneration called")
     
-    // Validate the form data has 4 files
+    // Validate the form data has 1-4 files
     const files = formData.getAll('files') as File[]
     
-    if (files.length !== 4) {
+    if (files.length < 1 || files.length > 4) {
       return {
         success: false,
-        error: "Please select exactly 4 images"
+        error: "Please select between 1 and 4 images"
       }
     }
     
@@ -163,10 +163,10 @@ export async function validateThreeDImages(files: FileList | File[]): Promise<{
 }> {
   const filesArray = Array.from(files)
   
-  if (filesArray.length !== 4) {
+  if (filesArray.length < 1 || filesArray.length > 4) {
     return {
       valid: false,
-      error: "Please select exactly 4 images"
+      error: "Please select between 1 and 4 images"
     }
   }
   

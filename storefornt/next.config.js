@@ -16,9 +16,9 @@ const nextConfig = {
     // Add any other IPs you're accessing from
   ],
   reactStrictMode: true,
-  serverActions: {
-    bodySizeLimit: '50mb',
-  },
+  // serverActions: {
+  //   bodySizeLimit: '50mb',
+  // },
   experimental: {
     serverActions: {
       bodySizeLimit: '50mb', // Increase limit for image uploads
