@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { ExpressCheckoutElement, useStripe, useElements } from "@stripe/react-stripe-js"
 import type { HttpTypes } from "@medusajs/types"
-import { updateCart, placeOrder, setShippingMethod, listCartOptions } from "@lib/data/cart"
+import { updateCart, placeOrder, setShippingMethod, listCartOptions, initiatePaymentSession } from "@lib/data/cart"
 
 interface ExpressCheckoutProps {
   cart: HttpTypes.StoreCart
@@ -33,92 +33,37 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
     loadShippingOptions()
   }, [cart?.id, shippingOptions.length])
 
-  // Handle shipping address changes - this is where shipping info is captured
+  // Handle shipping address changes
   const handleShippingAddressChange = useCallback(async (event: any) => {
     try {
-      console.log("Shipping address changed:", event.shippingAddress)
-      
-      // Extract and format shipping address from the wallet
-      const shippingAddress = event.shippingAddress
-      const addressData = {
-        shipping_address: {
-          first_name: shippingAddress.name?.split(' ')[0] || 'Customer',
-          last_name: shippingAddress.name?.split(' ').slice(1).join(' ') || '',
-          address_1: shippingAddress.addressLine?.[0] || '',
-          address_2: shippingAddress.addressLine?.[1] || '',
-          city: shippingAddress.city || '',
-          country_code: shippingAddress.country?.toLowerCase() || '',
-          postal_code: shippingAddress.postalCode || '',
-          province: shippingAddress.region || '',
-          phone: shippingAddress.phone || '',
-        },
-        billing_address: {
-          first_name: shippingAddress.name?.split(' ')[0] || 'Customer',
-          last_name: shippingAddress.name?.split(' ').slice(1).join(' ') || '',
-          address_1: shippingAddress.addressLine?.[0] || '',
-          address_2: shippingAddress.addressLine?.[1] || '',
-          city: shippingAddress.city || '',
-          country_code: shippingAddress.country?.toLowerCase() || '',
-          postal_code: shippingAddress.postalCode || '',
-          province: shippingAddress.region || '',
-          phone: shippingAddress.phone || '',
-        }
-      }
-
-      // Update cart with new address
-      await updateCart(addressData)
-
-      // Get updated shipping options for this address
-      const options = await listCartOptions()
-      const availableOptions = options.shipping_options || []
-      setShippingOptions(availableOptions)
-
-      // Format shipping options for Express Checkout
-      const expressShippingOptions = availableOptions.map(option => ({
-        id: option.id,
-        label: option.name,
-        amount: Math.round(option.amount || 0), // Stripe expects amount in cents
-        detail: option.name
-      }))
-
-      // CRITICAL: Must call updateWith to continue the flow
-      event.updateWith({
-        status: 'success',
-        shippingOptions: expressShippingOptions
-      })
-
+      console.log("Shipping address changed:", event)
+      // For express checkout elements, shipping rates are handled automatically
+      // Just resolve with success
+      event.resolve({ status: 'success' })
     } catch (error) {
       console.error('Error handling shipping address change:', error)
-      event.updateWith({ status: 'error' })
+      event.resolve({ status: 'fail' })
     }
   }, [])
 
   // Handle shipping method selection
   const handleShippingRateChange = useCallback(async (event: any) => {
     try {
-      console.log("Shipping rate changed:", event.shippingRate)
-      
-      // Set the selected shipping method in your cart
-      await setShippingMethod({
-        cartId: cart.id,
-        shippingMethodId: event.shippingRate.id
-      })
-
-      // CRITICAL: Must call updateWith to continue
-      event.updateWith({ status: 'success' })
-
+      console.log("Shipping rate changed:", event)
+      // Resolve the shipping rate change
+      event.resolve({ status: 'success' })
     } catch (error) {
       console.error('Error handling shipping rate change:', error)
-      event.updateWith({ status: 'error' })
+      event.resolve({ status: 'fail' })
     }
   }, [cart.id])
 
   // Handle final payment confirmation - shipping is already set by now
   const handleExpressCheckout = async (event: any) => {
-    console.log("Express checkout confirmed")
+    console.log("Express checkout confirmed", event)
     
     if (!stripe || !elements) {
-      event.complete('fail')
+      setError("Stripe not loaded")
       return
     }
 
@@ -126,18 +71,91 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
     setError(null)
 
     try {
-      // At this point, shipping address and method should already be set
-      // Just place the order
+      // Extract shipping information from the event
+      const shippingAddress = event.shippingAddress
+      const billingAddress = event.billingAddress || event.shippingAddress
+      
+      if (shippingAddress) {
+        // Update cart with addresses
+        const addressData: any = {
+          shipping_address: {
+            first_name: shippingAddress.recipient?.split(' ')[0] || event.payerName?.split(' ')[0] || 'Customer',
+            last_name: shippingAddress.recipient?.split(' ').slice(1).join(' ') || event.payerName?.split(' ').slice(1).join(' ') || '',
+            address_1: shippingAddress.addressLine?.[0] || '',
+            address_2: shippingAddress.addressLine?.[1] || '',
+            city: shippingAddress.city || '',
+            country_code: shippingAddress.country?.toLowerCase() || '',
+            postal_code: shippingAddress.postalCode || '',
+            province: shippingAddress.region || '',
+            phone: shippingAddress.phone || '',
+          },
+          billing_address: {
+            first_name: billingAddress.recipient?.split(' ')[0] || event.payerName?.split(' ')[0] || 'Customer',
+            last_name: billingAddress.recipient?.split(' ').slice(1).join(' ') || event.payerName?.split(' ').slice(1).join(' ') || '',
+            address_1: billingAddress.addressLine?.[0] || shippingAddress.addressLine?.[0] || '',
+            address_2: billingAddress.addressLine?.[1] || shippingAddress.addressLine?.[1] || '',
+            city: billingAddress.city || shippingAddress.city || '',
+            country_code: billingAddress.country?.toLowerCase() || shippingAddress.country?.toLowerCase() || '',
+            postal_code: billingAddress.postalCode || shippingAddress.postalCode || '',
+            province: billingAddress.region || shippingAddress.region || '',
+            phone: billingAddress.phone || shippingAddress.phone || '',
+          },
+          email: event.payerEmail || '',
+        }
+        
+        console.log("Updating cart with express checkout addresses")
+        await updateCart(addressData)
+      }
+
+      // Set shipping method if needed
+      if (event.shippingRate) {
+        console.log("Setting shipping method:", event.shippingRate.id)
+        await setShippingMethod({
+          cartId: cart.id,
+          shippingMethodId: event.shippingRate.id
+        })
+      } else if (shippingOptions.length > 0) {
+        console.log("Auto-selecting first shipping option")
+        await setShippingMethod({
+          cartId: cart.id,
+          shippingMethodId: shippingOptions[0].id
+        })
+      }
+
+      // Create payment session with Stripe
+      console.log("Creating payment session")
+      const paymentSessionResponse = await initiatePaymentSession(cart, {
+        provider_id: "pp_stripe_stripe",
+      })
+
+      const paymentSession = paymentSessionResponse?.payment_collection?.payment_sessions?.[0]
+      const clientSecret = paymentSession?.data?.client_secret
+
+      if (!clientSecret) {
+        throw new Error("Failed to create payment session")
+      }
+
+      // Confirm payment with Stripe
+      console.log("Confirming payment with Stripe")
+      const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        clientSecret: clientSecret,
+        redirect: "if_required",
+      })
+
+      if (confirmError) {
+        throw new Error(confirmError.message)
+      }
+
+      console.log("Payment confirmed, placing order")
+      
+      // Place the order
       const orderResult = await placeOrder()
       console.log("Order placed successfully:", orderResult)
       
-      // Complete the express checkout flow
-      event.complete('success')
-      
     } catch (error: any) {
-      console.error("Failed to place order:", error)
-      setError(error.message || "Order placement failed")
-      event.complete('fail')
+      console.error("Express checkout failed:", error)
+      setError(error.message || "Express checkout failed")
     } finally {
       setIsProcessing(false)
     }
@@ -161,11 +179,6 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
           onShippingAddressChange={handleShippingAddressChange}
           onShippingRateChange={handleShippingRateChange}
           options={{
-            // CRITICAL: Enable shipping collection
-            business: {
-              name: "Your Store Name"
-            },
-            // This enables shipping address collection
             layout: {
               maxColumns: 1,
               maxRows: 1,
