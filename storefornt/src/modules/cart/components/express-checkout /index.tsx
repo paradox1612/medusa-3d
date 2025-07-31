@@ -7,10 +7,11 @@ import {
   useElements,
 } from "@stripe/react-stripe-js"
 import type { HttpTypes } from "@medusajs/types"
-import { updateCart, placeOrder, initiatePaymentSession } from "@lib/data/cart"
+import { updateCart, placeOrder, initiatePaymentSession, setShippingMethod, listCartOptions } from "@lib/data/cart"
 
 interface ExpressCheckoutProps {
   cart: HttpTypes.StoreCart
+  countryCode?: string
 }
 
 interface DebugInfo {
@@ -20,13 +21,14 @@ interface DebugInfo {
   }
 }
 
-export default function ExpressCheckout({ cart }: ExpressCheckoutProps) {
+export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutProps) {
   const stripe = useStripe()
   const elements = useElements()
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [debugInfo, setDebugInfo] = useState<DebugInfo>({})
   const [isElementReady, setIsElementReady] = useState(false)
+  const [shippingOptions, setShippingOptions] = useState<HttpTypes.StoreCartShippingOption[]>([])
 
   // Debug function with useCallback to prevent recreation on every render
   const debug = useCallback((message: string, data?: any) => {
@@ -51,6 +53,22 @@ export default function ExpressCheckout({ cart }: ExpressCheckoutProps) {
     })
   }, [cart.id, cart.total, cart.currency_code, debug])
 
+  // Load shipping options when cart is available
+  useEffect(() => {
+    if (!cart?.id || shippingOptions.length > 0) return
+    
+    const loadShippingOptions = async () => {
+      try {
+        const options = await listCartOptions()
+        setShippingOptions(options.shipping_options || [])
+      } catch (error) {
+        debug("Failed to load shipping options", error)
+      }
+    }
+    
+    loadShippingOptions()
+  }, [cart?.id, debug, shippingOptions.length])
+
   const handleExpressCheckout = async (event: any) => {
     debug("Express checkout initiated", {
       event,
@@ -63,6 +81,7 @@ export default function ExpressCheckout({ cart }: ExpressCheckoutProps) {
       const errorMsg = "Stripe not loaded"
       setError(errorMsg)
       debug("Error: " + errorMsg)
+      event.complete('fail')
       return
     }
 
@@ -72,51 +91,79 @@ export default function ExpressCheckout({ cart }: ExpressCheckoutProps) {
     try {
       // Update cart with shipping and billing information from express checkout
       let updatedCart = cart
-      if (event.shippingAddress) {
-        const addressData = {
+      
+      // Extract shipping address from express checkout
+      const shippingAddress = event.shippingAddress
+      const billingAddress = event.billingAddress || event.shippingAddress
+      
+      if (shippingAddress) {
+        const addressData: any = {
           shipping_address: {
-            first_name: event.shippingAddress.recipient?.split(' ')[0] || 'Customer',
-            last_name: event.shippingAddress.recipient?.split(' ').slice(1).join(' ') || '',
-            address_1: event.shippingAddress.addressLine[0] || '',
-            address_2: event.shippingAddress.addressLine[1] || '',
-            city: event.shippingAddress.city || '',
-            country_code: event.shippingAddress.country?.toLowerCase() || '',
-            postal_code: event.shippingAddress.postalCode || '',
-            province: event.shippingAddress.region || '',
-            phone: event.shippingAddress.phone || '',
+            first_name: shippingAddress.recipient?.split(' ')[0] || event.payerName?.split(' ')[0] || 'Customer',
+            last_name: shippingAddress.recipient?.split(' ').slice(1).join(' ') || event.payerName?.split(' ').slice(1).join(' ') || '',
+            address_1: shippingAddress.addressLine?.[0] || '',
+            address_2: shippingAddress.addressLine?.[1] || '',
+            city: shippingAddress.city || '',
+            country_code: shippingAddress.country?.toLowerCase() || '',
+            postal_code: shippingAddress.postalCode || '',
+            province: shippingAddress.region || '',
+            phone: shippingAddress.phone || '',
           },
-          email: event.payerEmail || event.payerName || '',
+          billing_address: {
+            first_name: billingAddress.recipient?.split(' ')[0] || event.payerName?.split(' ')[0] || 'Customer',
+            last_name: billingAddress.recipient?.split(' ').slice(1).join(' ') || event.payerName?.split(' ').slice(1).join(' ') || '',
+            address_1: billingAddress.addressLine?.[0] || shippingAddress.addressLine?.[0] || '',
+            address_2: billingAddress.addressLine?.[1] || shippingAddress.addressLine?.[1] || '',
+            city: billingAddress.city || shippingAddress.city || '',
+            country_code: billingAddress.country?.toLowerCase() || shippingAddress.country?.toLowerCase() || '',
+            postal_code: billingAddress.postalCode || shippingAddress.postalCode || '',
+            province: billingAddress.region || shippingAddress.region || '',
+            phone: billingAddress.phone || shippingAddress.phone || '',
+          },
+          email: event.payerEmail || '',
         }
-
-        // Use billing address same as shipping for express checkout
-        addressData.billing_address = { ...addressData.shipping_address }
         
         debug("Updating cart with express checkout address data", addressData)
-        
         updatedCart = await updateCart(addressData)
       }
 
-      // Now create payment session with the updated cart
+      // Set shipping method if a shipping option was selected
+      if (event.shippingRate && updatedCart) {
+        debug("Setting shipping method", event.shippingRate)
+        await setShippingMethod({
+          cartId: updatedCart.id,
+          shippingMethodId: event.shippingRate.id
+        })
+      } else if (shippingOptions.length > 0 && updatedCart) {
+        // Automatically select the first shipping option if none was selected
+        debug("Auto-selecting first shipping option")
+        await setShippingMethod({
+          cartId: updatedCart.id,
+          shippingMethodId: shippingOptions[0].id
+        })
+      }
+
+      // Create payment session
       debug("Creating payment session for express checkout")
-      const paymentSession = await initiatePaymentSession(updatedCart || cart, {
-        provider_id: "pp_stripe_stripe",
+      const paymentSessionResponse = await initiatePaymentSession(updatedCart || cart, {
+        provider_id: "stripe",
       })
 
-      if (!paymentSession?.data?.client_secret) {
+      if (!paymentSessionResponse?.payment_session?.data?.client_secret) {
         throw new Error("Failed to create payment session")
       }
 
       debug("Payment session created", {
-        sessionId: paymentSession.id,
-        hasClientSecret: !!paymentSession.data.client_secret,
+        sessionId: paymentSessionResponse.payment_session.id,
+        hasClientSecret: !!paymentSessionResponse.payment_session.data.client_secret,
       })
 
       // Confirm the payment with Stripe
       const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
         elements,
-        clientSecret: paymentSession.data.client_secret,
+        clientSecret: paymentSessionResponse.payment_session.data.client_secret,
         confirmParams: {
-          return_url: `${window.location.origin}/${cart.region?.iso_2}/order/confirmed`,
+          return_url: `${window.location.origin}/${countryCode || cart.region?.countries?.[0]?.iso_2}/order/confirmed`,
         },
         redirect: "if_required",
       })
@@ -143,18 +190,55 @@ export default function ExpressCheckout({ cart }: ExpressCheckoutProps) {
       setError(errorMsg)
       
       // Reject the payment if there was an error
-      if (event.complete) {
-        event.complete('fail')
-      }
+      event.complete('fail')
     } finally {
       setIsProcessing(false)
     }
   }
 
-  const handleExpressCheckoutClick = useCallback(
+  const handleShippingAddressChange = useCallback(
+    async (event: any) => {
+      debug("Shipping address changed", event)
+      
+      // Load shipping options for the new address if needed
+      try {
+        const options = await listCartOptions()
+        const availableOptions = options.shipping_options || []
+        
+        // Provide shipping rates to Stripe
+        const shippingRates = availableOptions.map(option => ({
+          id: option.id,
+          displayName: option.name,
+          amount: Math.round((option.amount || 0) * 100), // Convert to cents
+        }))
+        
+        event.resolve({
+          status: 'success',
+          shippingRates: shippingRates.length > 0 ? shippingRates : [{
+            id: 'free',
+            displayName: 'Free Shipping',
+            amount: 0,
+          }]
+        })
+      } catch (error) {
+        debug("Error handling shipping address change", error)
+        event.resolve({
+          status: 'success',
+          shippingRates: [{
+            id: 'free',
+            displayName: 'Free Shipping',
+            amount: 0,
+          }]
+        })
+      }
+    },
+    [debug]
+  )
+
+  const handleShippingRateChange = useCallback(
     (event: any) => {
-      debug("Express checkout button clicked", event)
-      handleExpressCheckout(event)
+      debug("Shipping rate changed", event)
+      event.resolve({ status: 'success' })
     },
     [debug]
   )
@@ -212,19 +296,17 @@ export default function ExpressCheckout({ cart }: ExpressCheckoutProps) {
       {/* Official Stripe Express Checkout Element */}
       <div className="express-checkout-container flex flex-col">
         <ExpressCheckoutElement
-          onConfirm={handleExpressCheckoutClick}
+          onConfirm={handleExpressCheckout}
           options={{
             buttonTheme: {
               applePay: "black",
               googlePay: "black",
               paypal: "gold",
-              amazonPay: "gold",
             },
             buttonType: {
               applePay: "buy",
               googlePay: "buy", 
               paypal: "buynow",
-              amazonPay: "buynow",
             },
             buttonHeight: 48,
             requestShipping: true,
@@ -244,21 +326,14 @@ export default function ExpressCheckout({ cart }: ExpressCheckoutProps) {
             debug("ExpressCheckoutElement load error", event)
             setError("Failed to load express checkout options")
           }}
-          onShippingAddressChange={(event) => {
-            debug("Shipping address changed", event)
-            // You can add shipping rate calculation here if needed
-            event.resolve({ status: 'success' })
-          }}
-          onShippingRateChange={(event) => {
-            debug("Shipping rate changed", event)
-            event.resolve({ status: 'success' })
-          }}
+          onShippingAddressChange={handleShippingAddressChange}
+          onShippingRateChange={handleShippingRateChange}
         />
         {isElementReady && (
           <div className="flex items-center my-8">
             <div className="flex-grow border-t border-gray-300"></div>
             <span className="px-3 text-sm text-gray-500 bg-background">
-              oder
+              or
             </span>
             <div className="flex-grow border-t border-gray-300"></div>
           </div>

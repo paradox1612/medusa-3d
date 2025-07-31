@@ -9,9 +9,11 @@ import { HttpTypes } from "@medusajs/types"
 const CartTemplate = ({
   cart,
   customer,
+  countryCode,
 }: {
   cart: HttpTypes.StoreCart | null
   customer: HttpTypes.StoreCustomer | null
+  countryCode?: string
 }) => {
   return (
     <div className="py-12">
@@ -34,7 +36,7 @@ const CartTemplate = ({
                     {/* Express Checkout - Only show when cart has items */}
                     {cart.items && cart.items.length > 0 && (
                       <div className="bg-white py-6">
-                        <ExpressCheckoutWrapper cart={cart as any} />
+                        <ExpressCheckoutWrapper cart={cart as any} countryCode={countryCode} />
                       </div>
                     )}
                     

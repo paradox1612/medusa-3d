@@ -10,10 +10,12 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_KEY || "")
 
 interface ExpressCheckoutWrapperProps {
   cart: HttpTypes.StoreCart
+  countryCode?: string
 }
 
 export default function ExpressCheckoutWrapper({
   cart,
+  countryCode,
 }: ExpressCheckoutWrapperProps) {
   // Don't render if no cart or cart is empty
   if (!cart?.id || !cart.items?.length) {
@@ -46,7 +48,7 @@ export default function ExpressCheckoutWrapper({
 
   return (
     <Elements stripe={stripePromise} options={options}>
-      <ExpressCheckout cart={cart} />
+      <ExpressCheckout cart={cart} countryCode={countryCode} />
     </Elements>
   )
 }
