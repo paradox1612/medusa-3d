@@ -1,7 +1,13 @@
+
 import { useState, useEffect, useCallback } from "react"
 import { ExpressCheckoutElement, useStripe, useElements } from "@stripe/react-stripe-js"
 import type { HttpTypes } from "@medusajs/types"
 import { updateCart, placeOrder, setShippingMethod, listCartOptions, initiatePaymentSession } from "@lib/data/cart"
+
+type ShippingOption = HttpTypes.StoreCartShippingOption & {
+  price_type?: string;
+  amount?: number;
+};
 
 interface ExpressCheckoutProps {
   cart: HttpTypes.StoreCart
@@ -14,16 +20,53 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isElementReady, setIsElementReady] = useState(false)
-  const [shippingOptions, setShippingOptions] = useState<HttpTypes.StoreCartShippingOption[]>([])
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([])
 
   // Load initial shipping options
   useEffect(() => {
-    if (!cart?.id || shippingOptions.length > 0) return
+    if (!cart?.id || !cart.shipping_address) return
 
     const loadShippingOptions = async () => {
       try {
-        const options = await listCartOptions()
-        setShippingOptions(options.shipping_options || [])
+        // Only load options if we don't have any yet
+        if (shippingOptions.length === 0) {
+          const options = await listCartOptions()
+          
+          // For calculated shipping options, get their prices
+          const optionsWithPrices = await Promise.all<ShippingOption>(
+            (options.shipping_options || []).map(async (option) => {
+              if (option.price_type === "calculated") {
+                try {
+                  const response = await fetch(
+                    `${process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL}/store/shipping-options/${option.id}/calculate`,
+                    {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        cart_id: cart.id,
+                      }),
+                    }
+                  )
+                  
+                  if (response.ok) {
+                    const data = await response.json()
+                    return {
+                      ...option,
+                      amount: data.shipping_option.amount
+                    }
+                  }
+                } catch (error) {
+                  console.error('Error calculating shipping price:', error)
+                }
+              }
+              return option as ShippingOption
+            })
+          )
+          
+          setShippingOptions(optionsWithPrices)
+        }
       } catch (error) {
         console.error("Failed to load shipping options", error)
         setShippingOptions([])
@@ -31,7 +74,7 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
     }
 
     loadShippingOptions()
-  }, [cart?.id, shippingOptions.length])
+  }, [cart?.id, cart?.shipping_address, shippingOptions.length])
 
   // Handle shipping address changes
   const handleShippingAddressChange = useCallback(async (event: any) => {
@@ -39,9 +82,65 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
       console.log("Shipping address changed - full event:", event)
       console.log("Shipping address data:", event.shippingAddress)
       
-      // Provide current shipping rates (don't update cart here to avoid 500 errors)
-      // The cart update will happen in the final confirm handler
-      const currentShippingRates = shippingOptions.map(option => ({
+      if (!event.shippingAddress) {
+        console.error("No shipping address provided in the event")
+        throw new Error("Shipping address is required")
+      }
+
+      // Update cart with shipping address
+      await updateCart({
+        shipping_address: {
+          first_name: event.shippingAddress.givenName || "",
+          last_name: event.shippingAddress.familyName || "",
+          address_1: event.shippingAddress.addressLine?.[0] || "",
+          address_2: event.shippingAddress.addressLine?.[1] || "",
+          city: event.shippingAddress.city || "",
+          country_code: event.shippingAddress.country || "",
+          postal_code: event.shippingAddress.postalCode || "",
+          phone: event.shippingAddress.phone || ""
+        }
+      })
+      
+      // Refresh shipping options after updating address
+      const options = await listCartOptions()
+      
+      // For calculated shipping options, get their prices
+      const optionsWithPrices = await Promise.all<ShippingOption>(
+        (options.shipping_options || []).map(async (option) => {
+          if (option.price_type === "calculated") {
+            try {
+              const response = await fetch(
+                `${process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL}/store/shipping-options/${option.id}/calculate`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    cart_id: cart.id,
+                  }),
+                }
+              )
+              
+              if (response.ok) {
+                const data = await response.json()
+                return {
+                  ...option,
+                  amount: data.shipping_option.amount
+                }
+              }
+            } catch (error) {
+              console.error('Error calculating shipping price:', error)
+            }
+          }
+          return option as ShippingOption
+        })
+      )
+      
+      setShippingOptions(optionsWithPrices)
+      
+      // Format shipping rates for Stripe
+      const currentShippingRates = optionsWithPrices.map(option => ({
         id: option.id,
         displayName: option.name || 'Shipping',
         amount: Math.round((option.amount || 0) * 100), // Convert to cents
@@ -52,7 +151,7 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
       }))
       
       console.log("Providing shipping rates:", currentShippingRates)
-        
+      
       // Provide shipping rates to Stripe
       event.resolve({
         shippingRates: currentShippingRates.length > 0 ? currentShippingRates : [{
@@ -188,31 +287,41 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
       })
 
       const paymentSession = paymentSessionResponse?.payment_collection?.payment_sessions?.[0]
-      const clientSecret = paymentSession?.data?.client_secret
+      const clientSecret = paymentSession?.data?.client_secret as string
+
 
       if (!clientSecret) {
         throw new Error("Failed to create payment session")
       }
 
-      // Confirm payment with Stripe
+      // First place the order to get the order ID
+      console.log("Placing order...")
+      const orderResult = await placeOrder()
+      console.log("Order placed successfully:", orderResult)
+
+      if (!orderResult?.id) {
+        throw new Error("Failed to place order or get order ID")
+      }
+
+      // Confirm payment with Stripe using the order ID in the return URL
       console.log("Confirming payment with Stripe")
       const { error: confirmError } = await stripe.confirmPayment({
         elements,
         clientSecret: clientSecret,
         confirmParams: {
-          return_url: `${window.location.origin}/${countryCode || 'us'}/order/confirmed`,
+          return_url: `${window.location.origin}/${countryCode || 'us'}/order/${orderResult.id}/confirmed`,
         },
+        // Redirect to the order confirmation page if the payment requires further action
+        redirect: 'if_required',
       })
 
       if (confirmError) {
         throw new Error(confirmError.message)
       }
 
-      console.log("Payment confirmed, placing order")
-      
-      // Place the order
-      const orderResult = await placeOrder()
-      console.log("Order placed successfully:", orderResult)
+      // If we get here, the payment was successful and we can redirect to the confirmation page
+      console.log("Payment confirmed, redirecting to order confirmation")
+      window.location.href = `/${countryCode || 'us'}/order/${orderResult.id}/confirmed`
       
     } catch (error: any) {
       console.error("Express checkout failed:", error)
