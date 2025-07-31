@@ -36,10 +36,61 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
   // Handle shipping address changes
   const handleShippingAddressChange = useCallback(async (event: any) => {
     try {
-      console.log("Shipping address changed:", event)
-      // For express checkout elements, shipping rates are handled automatically
-      // Just resolve with success
-      event.resolve({ status: 'success' })
+      console.log("Shipping address changed:", event.shippingAddress)
+      
+      // Update cart with new shipping address to get accurate shipping rates
+      if (event.shippingAddress) {
+        const addressData = {
+          shipping_address: {
+            first_name: event.shippingAddress.recipient?.split(' ')[0] || 'Customer',
+            last_name: event.shippingAddress.recipient?.split(' ').slice(1).join(' ') || '',
+            address_1: event.shippingAddress.addressLine?.[0] || '',
+            address_2: event.shippingAddress.addressLine?.[1] || '',
+            city: event.shippingAddress.city || '',
+            country_code: event.shippingAddress.country?.toLowerCase() || '',
+            postal_code: event.shippingAddress.postalCode || '',
+            province: event.shippingAddress.region || '',
+            phone: event.shippingAddress.phone || '',
+          }
+        }
+        
+        // Update cart with new address
+        await updateCart(addressData)
+        
+        // Get updated shipping options for this address
+        const options = await listCartOptions()
+        const availableOptions = options.shipping_options || []
+        setShippingOptions(availableOptions)
+        
+        // Convert to Stripe shipping rates format
+        const shippingRates = availableOptions.map(option => ({
+          id: option.id,
+          displayName: option.name || 'Shipping',
+          amount: Math.round((option.amount || 0) * 100), // Convert to cents
+          deliveryEstimate: {
+            minimum: { unit: 'business_day' as const, value: 1 },
+            maximum: { unit: 'business_day' as const, value: 5 }
+          }
+        }))
+        
+        console.log("Providing updated shipping rates:", shippingRates)
+        
+        // Provide updated shipping rates to Stripe
+        event.resolve({
+          status: 'success',
+          shippingRates: shippingRates.length > 0 ? shippingRates : [{
+            id: 'free-shipping',
+            displayName: 'Free Shipping',
+            amount: 0,
+            deliveryEstimate: {
+              minimum: { unit: 'business_day' as const, value: 3 },
+              maximum: { unit: 'business_day' as const, value: 7 }
+            }
+          }]
+        })
+      } else {
+        event.resolve({ status: 'success' })
+      }
     } catch (error) {
       console.error('Error handling shipping address change:', error)
       event.resolve({ status: 'fail' })
@@ -49,14 +100,20 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
   // Handle shipping method selection
   const handleShippingRateChange = useCallback(async (event: any) => {
     try {
-      console.log("Shipping rate changed:", event)
+      console.log("Shipping rate changed:", event.shippingRate)
+      
+      if (event.shippingRate?.id) {
+        // Store selected shipping method ID for later use
+        console.log("Selected shipping method:", event.shippingRate.id)
+      }
+      
       // Resolve the shipping rate change
       event.resolve({ status: 'success' })
     } catch (error) {
       console.error('Error handling shipping rate change:', error)
       event.resolve({ status: 'fail' })
     }
-  }, [cart.id])
+  }, [])
 
   // Handle final payment confirmation - shipping is already set by now
   const handleExpressCheckout = async (event: any) => {
@@ -137,7 +194,7 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
       })
 
       const paymentSession = paymentSessionResponse?.payment_collection?.payment_sessions?.[0]
-      const clientSecret = paymentSession?.data?.client_secret
+      const clientSecret = cart?.payment_collection?.payment_sessions?.[0].data.client_secret as string
 
       if (!clientSecret) {
         throw new Error("Failed to create payment session")
@@ -145,13 +202,12 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
 
       // Confirm payment with Stripe
       console.log("Confirming payment with Stripe")
-      const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
+      const { error: confirmError } = await stripe.confirmPayment({
         elements,
         clientSecret: clientSecret,
         confirmParams: {
           return_url: `${window.location.origin}/${countryCode || 'us'}/order/confirmed`,
         },
-        redirect: "if_required",
       })
 
       if (confirmError) {
@@ -206,6 +262,20 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
               paypal: "buynow",
             },
             buttonHeight: 48,
+            // Enable shipping address collection
+            shippingAddressRequired: true,
+            emailRequired: true,
+            phoneNumberRequired: true,
+            // Provide initial shipping rates
+            shippingRates: shippingOptions.map(option => ({
+              id: option.id,
+              displayName: option.name || 'Shipping',
+              amount: Math.round((option.amount || 0) * 100), // Convert to cents
+              deliveryEstimate: {
+                minimum: { unit: 'business_day' as const, value: 1 },
+                maximum: { unit: 'business_day' as const, value: 5 }
+              }
+            })),
           }}
           onReady={(event) => {
             console.log("ExpressCheckoutElement ready")

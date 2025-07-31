@@ -44,9 +44,6 @@ export default function ExpressCheckoutWrapper({
     appearance: {
       theme: "stripe" as const,
     },
-    // Configure for shipping address collection
-    capture_method: 'automatic',
-    payment_method_types: ['card'],
   }
 
   return (
