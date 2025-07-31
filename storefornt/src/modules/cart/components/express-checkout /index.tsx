@@ -36,64 +36,48 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
   // Handle shipping address changes
   const handleShippingAddressChange = useCallback(async (event: any) => {
     try {
-      console.log("Shipping address changed:", event.shippingAddress)
+      console.log("Shipping address changed - full event:", event)
+      console.log("Shipping address data:", event.shippingAddress)
       
-      // Update cart with new shipping address to get accurate shipping rates
-      if (event.shippingAddress) {
-        const addressData = {
-          shipping_address: {
-            first_name: event.shippingAddress.recipient?.split(' ')[0] || 'Customer',
-            last_name: event.shippingAddress.recipient?.split(' ').slice(1).join(' ') || '',
-            address_1: event.shippingAddress.addressLine?.[0] || '',
-            address_2: event.shippingAddress.addressLine?.[1] || '',
-            city: event.shippingAddress.city || '',
-            country_code: event.shippingAddress.country?.toLowerCase() || '',
-            postal_code: event.shippingAddress.postalCode || '',
-            province: event.shippingAddress.region || '',
-            phone: event.shippingAddress.phone || '',
-          }
+      // Provide current shipping rates (don't update cart here to avoid 500 errors)
+      // The cart update will happen in the final confirm handler
+      const currentShippingRates = shippingOptions.map(option => ({
+        id: option.id,
+        displayName: option.name || 'Shipping',
+        amount: Math.round((option.amount || 0) * 100), // Convert to cents
+        deliveryEstimate: {
+          minimum: { unit: 'business_day' as const, value: 1 },
+          maximum: { unit: 'business_day' as const, value: 5 }
         }
+      }))
+      
+      console.log("Providing shipping rates:", currentShippingRates)
         
-        // Update cart with new address
-        await updateCart(addressData)
-        
-        // Get updated shipping options for this address
-        const options = await listCartOptions()
-        const availableOptions = options.shipping_options || []
-        setShippingOptions(availableOptions)
-        
-        // Convert to Stripe shipping rates format
-        const shippingRates = availableOptions.map(option => ({
-          id: option.id,
-          displayName: option.name || 'Shipping',
-          amount: Math.round((option.amount || 0) * 100), // Convert to cents
+      // Provide shipping rates to Stripe
+      event.resolve({
+        shippingRates: currentShippingRates.length > 0 ? currentShippingRates : [{
+          id: 'free-shipping',
+          displayName: 'Free Shipping',
+          amount: 0,
           deliveryEstimate: {
-            minimum: { unit: 'business_day' as const, value: 1 },
-            maximum: { unit: 'business_day' as const, value: 5 }
+            minimum: { unit: 'business_day' as const, value: 3 },
+            maximum: { unit: 'business_day' as const, value: 7 }
           }
-        }))
-        
-        console.log("Providing updated shipping rates:", shippingRates)
-        
-        // Provide updated shipping rates to Stripe
-        event.resolve({
-          status: 'success',
-          shippingRates: shippingRates.length > 0 ? shippingRates : [{
-            id: 'free-shipping',
-            displayName: 'Free Shipping',
-            amount: 0,
-            deliveryEstimate: {
-              minimum: { unit: 'business_day' as const, value: 3 },
-              maximum: { unit: 'business_day' as const, value: 7 }
-            }
-          }]
-        })
-      } else {
-        event.resolve({ status: 'success' })
-      }
+        }]
+      })
     } catch (error) {
       console.error('Error handling shipping address change:', error)
-      event.resolve({ status: 'fail' })
+      event.resolve({
+        shippingRates: [{
+          id: 'free-shipping',
+          displayName: 'Free Shipping',
+          amount: 0,
+          deliveryEstimate: {
+            minimum: { unit: 'business_day' as const, value: 3 },
+            maximum: { unit: 'business_day' as const, value: 7 }
+          }
+        }]
+      })
     }
   }, [])
 
@@ -108,10 +92,10 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
       }
       
       // Resolve the shipping rate change
-      event.resolve({ status: 'success' })
+      event.resolve({})
     } catch (error) {
       console.error('Error handling shipping rate change:', error)
-      event.resolve({ status: 'fail' })
+      event.resolve({})
     }
   }, [])
 
@@ -140,36 +124,46 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
       const shippingAddress = event.shippingAddress
       const billingAddress = event.billingAddress || event.shippingAddress
       
-      if (shippingAddress) {
-        // Update cart with addresses
-        const addressData: any = {
-          shipping_address: {
-            first_name: shippingAddress.recipient?.split(' ')[0] || event.payerName?.split(' ')[0] || 'Customer',
-            last_name: shippingAddress.recipient?.split(' ').slice(1).join(' ') || event.payerName?.split(' ').slice(1).join(' ') || '',
-            address_1: shippingAddress.addressLine?.[0] || '',
-            address_2: shippingAddress.addressLine?.[1] || '',
-            city: shippingAddress.city || '',
-            country_code: shippingAddress.country?.toLowerCase() || '',
-            postal_code: shippingAddress.postalCode || '',
-            province: shippingAddress.region || '',
-            phone: shippingAddress.phone || '',
-          },
-          billing_address: {
-            first_name: billingAddress.recipient?.split(' ')[0] || event.payerName?.split(' ')[0] || 'Customer',
-            last_name: billingAddress.recipient?.split(' ').slice(1).join(' ') || event.payerName?.split(' ').slice(1).join(' ') || '',
-            address_1: billingAddress.addressLine?.[0] || shippingAddress.addressLine?.[0] || '',
-            address_2: billingAddress.addressLine?.[1] || shippingAddress.addressLine?.[1] || '',
-            city: billingAddress.city || shippingAddress.city || '',
-            country_code: billingAddress.country?.toLowerCase() || shippingAddress.country?.toLowerCase() || '',
-            postal_code: billingAddress.postalCode || shippingAddress.postalCode || '',
-            province: billingAddress.region || shippingAddress.region || '',
-            phone: billingAddress.phone || shippingAddress.phone || '',
-          },
-          email: event.payerEmail || '',
+      // Only update cart if we have new address information and cart doesn't have addresses
+      if (shippingAddress && (!cart.shipping_address || !cart.billing_address)) {
+        try {
+          // Update cart with addresses
+          const addressData: any = {
+            shipping_address: {
+              first_name: shippingAddress.recipient?.split(' ')[0] || event.payerName?.split(' ')[0] || 'Customer',
+              last_name: shippingAddress.recipient?.split(' ').slice(1).join(' ') || event.payerName?.split(' ').slice(1).join(' ') || '',
+              address_1: shippingAddress.addressLine?.[0] || '',
+              address_2: shippingAddress.addressLine?.[1] || '',
+              city: shippingAddress.city || '',
+              country_code: shippingAddress.country?.toLowerCase() || '',
+              postal_code: shippingAddress.postalCode || '',
+              province: shippingAddress.region || '',
+              phone: shippingAddress.phone || '',
+            },
+            billing_address: {
+              first_name: billingAddress.recipient?.split(' ')[0] || event.payerName?.split(' ')[0] || 'Customer',
+              last_name: billingAddress.recipient?.split(' ').slice(1).join(' ') || event.payerName?.split(' ').slice(1).join(' ') || '',
+              address_1: billingAddress.addressLine?.[0] || shippingAddress.addressLine?.[0] || '',
+              address_2: billingAddress.addressLine?.[1] || shippingAddress.addressLine?.[1] || '',
+              city: billingAddress.city || shippingAddress.city || '',
+              country_code: billingAddress.country?.toLowerCase() || shippingAddress.country?.toLowerCase() || '',
+              postal_code: billingAddress.postalCode || shippingAddress.postalCode || '',
+              province: billingAddress.region || shippingAddress.region || '',
+              phone: billingAddress.phone || shippingAddress.phone || '',
+            },
+          }
+          
+          if (event.payerEmail) {
+            addressData.email = event.payerEmail
+          }
+          
+          console.log("Updating cart with express checkout addresses", addressData)
+          await updateCart(addressData)
+        } catch (updateError) {
+          console.warn("Failed to update cart addresses, continuing with existing addresses:", updateError)
         }
-        
-        console.log("Updating cart with express checkout addresses")
-        await updateCart(addressData)
+      } else {
+        console.log("Using existing cart addresses or no new address provided")
       }
 
       // Set shipping method if needed
@@ -194,7 +188,7 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
       })
 
       const paymentSession = paymentSessionResponse?.payment_collection?.payment_sessions?.[0]
-      const clientSecret = cart?.payment_collection?.payment_sessions?.[0].data.client_secret as string
+      const clientSecret = paymentSession?.data?.client_secret
 
       if (!clientSecret) {
         throw new Error("Failed to create payment session")
