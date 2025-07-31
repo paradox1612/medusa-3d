@@ -44,6 +44,22 @@ module.exports = defineConfig({
   },
   
   modules: [
+    
+    {
+      resolve: "@medusajs/medusa/fulfillment",
+      options: {
+        providers: [
+          {
+            resolve: `@medusajs/medusa/fulfillment-manual`,
+            id: "manual",
+            options: {
+              // provider options...
+            },
+          },
+        ],
+      },
+    },
+
     {
       resolve: './modules/threed-job',
     },
