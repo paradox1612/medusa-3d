@@ -31,10 +31,12 @@ const CartTemplate = ({
               <div className="flex flex-col gap-y-8 sticky top-12">
                 {cart && cart.region && (
                   <>
-                    {/* Express Checkout */}
-                    <div className="bg-white py-6">
-                      <ExpressCheckoutWrapper cart={cart as any} />
-                    </div>
+                    {/* Express Checkout - Only show when cart has items */}
+                    {cart.items && cart.items.length > 0 && (
+                      <div className="bg-white py-6">
+                        <ExpressCheckoutWrapper cart={cart as any} />
+                      </div>
+                    )}
                     
                     <div className="bg-white py-6">
                       <Summary cart={cart as any} />

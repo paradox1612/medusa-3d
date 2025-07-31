@@ -34,16 +34,14 @@ export default function ExpressCheckoutWrapper({
     return null
   }
 
-  // Stripe Elements options
+  // Stripe Elements options for Express Checkout - using Payment Request approach
   const options = {
     mode: "payment" as const,
     amount: Math.round((cart.total || 0) * 100), // Convert to cents
-    currency: cart.currency_code?.toLowerCase() || "eur",
+    currency: cart.currency_code?.toLowerCase() || "usd",
     appearance: {
       theme: "stripe" as const,
     },
-    // Payment method creation for express checkout
-    payment_method_creation: "manual" as const,
   }
 
   return (

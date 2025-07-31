@@ -7,6 +7,7 @@ import {
   useElements,
 } from "@stripe/react-stripe-js"
 import type { HttpTypes } from "@medusajs/types"
+import { updateCart, placeOrder, initiatePaymentSession } from "@lib/data/cart"
 
 interface ExpressCheckoutProps {
   cart: HttpTypes.StoreCart
@@ -55,6 +56,7 @@ export default function ExpressCheckout({ cart }: ExpressCheckoutProps) {
       event,
       stripe: !!stripe,
       elements: !!elements,
+      paymentMethodType: event.expressPaymentType || 'unknown',
     })
 
     if (!stripe || !elements) {
@@ -68,43 +70,82 @@ export default function ExpressCheckout({ cart }: ExpressCheckoutProps) {
     setError(null)
 
     try {
-      debug("Starting payment confirmation...")
-
-      // Confirm payment with Stripe
-      const { error: confirmError, paymentIntent } =
-        await stripe.confirmPayment({
-          elements,
-          confirmParams: {
-            return_url: `${window.location.origin}/checkout?step=confirmation`,
+      // Update cart with shipping and billing information from express checkout
+      let updatedCart = cart
+      if (event.shippingAddress) {
+        const addressData = {
+          shipping_address: {
+            first_name: event.shippingAddress.recipient?.split(' ')[0] || 'Customer',
+            last_name: event.shippingAddress.recipient?.split(' ').slice(1).join(' ') || '',
+            address_1: event.shippingAddress.addressLine[0] || '',
+            address_2: event.shippingAddress.addressLine[1] || '',
+            city: event.shippingAddress.city || '',
+            country_code: event.shippingAddress.country?.toLowerCase() || '',
+            postal_code: event.shippingAddress.postalCode || '',
+            province: event.shippingAddress.region || '',
+            phone: event.shippingAddress.phone || '',
           },
-          redirect: "if_required",
-        })
+          email: event.payerEmail || event.payerName || '',
+        }
 
-      debug("Payment confirmation result", {
-        error: confirmError,
-        paymentIntent: paymentIntent
-          ? {
-              id: paymentIntent.id,
-              status: paymentIntent.status,
-              amount: paymentIntent.amount,
-            }
-          : null,
+        // Use billing address same as shipping for express checkout
+        addressData.billing_address = { ...addressData.shipping_address }
+        
+        debug("Updating cart with express checkout address data", addressData)
+        
+        updatedCart = await updateCart(addressData)
+      }
+
+      // Now create payment session with the updated cart
+      debug("Creating payment session for express checkout")
+      const paymentSession = await initiatePaymentSession(updatedCart || cart, {
+        provider_id: "pp_stripe_stripe",
+      })
+
+      if (!paymentSession?.data?.client_secret) {
+        throw new Error("Failed to create payment session")
+      }
+
+      debug("Payment session created", {
+        sessionId: paymentSession.id,
+        hasClientSecret: !!paymentSession.data.client_secret,
+      })
+
+      // Confirm the payment with Stripe
+      const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        clientSecret: paymentSession.data.client_secret,
+        confirmParams: {
+          return_url: `${window.location.origin}/${cart.region?.iso_2}/order/confirmed`,
+        },
+        redirect: "if_required",
       })
 
       if (confirmError) {
         throw new Error(confirmError.message)
       }
 
-      if (paymentIntent?.status === "succeeded") {
-        debug("Payment succeeded, redirecting to confirmation...")
+      debug("Payment confirmed", {
+        paymentIntentId: paymentIntent?.id,
+        status: paymentIntent?.status,
+      })
 
-        // Redirect to confirmation page for final review and order placement
-        window.location.href = `/checkout?step=confirmation`
-      }
+      // Complete the express checkout event
+      event.complete('success')
+      
+      // Place the order
+      debug("Placing order via express checkout...")
+      await placeOrder()
+      
     } catch (err: any) {
-      const errorMsg = err.message || "Payment failed"
+      const errorMsg = err.message || "Express checkout failed"
       debug("Express checkout error", err)
       setError(errorMsg)
+      
+      // Reject the payment if there was an error
+      if (event.complete) {
+        event.complete('fail')
+      }
     } finally {
       setIsProcessing(false)
     }
@@ -176,12 +217,24 @@ export default function ExpressCheckout({ cart }: ExpressCheckoutProps) {
             buttonTheme: {
               applePay: "black",
               googlePay: "black",
+              paypal: "gold",
+              amazonPay: "gold",
             },
             buttonType: {
               applePay: "buy",
-              googlePay: "buy",
+              googlePay: "buy", 
+              paypal: "buynow",
+              amazonPay: "buynow",
             },
             buttonHeight: 48,
+            requestShipping: true,
+            requestPayerName: true,
+            requestPayerEmail: true,
+            layout: {
+              maxColumns: 1,
+              maxRows: 1,
+              overflow: 'auto',
+            },
           }}
           onReady={(event) => {
             debug("ExpressCheckoutElement ready", event)
@@ -190,6 +243,15 @@ export default function ExpressCheckout({ cart }: ExpressCheckoutProps) {
           onLoadError={(event) => {
             debug("ExpressCheckoutElement load error", event)
             setError("Failed to load express checkout options")
+          }}
+          onShippingAddressChange={(event) => {
+            debug("Shipping address changed", event)
+            // You can add shipping rate calculation here if needed
+            event.resolve({ status: 'success' })
+          }}
+          onShippingRateChange={(event) => {
+            debug("Shipping rate changed", event)
+            event.resolve({ status: 'success' })
           }}
         />
         {isElementReady && (
