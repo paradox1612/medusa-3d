@@ -75,6 +75,8 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
       stripe: !!stripe,
       elements: !!elements,
       paymentMethodType: event.expressPaymentType || 'unknown',
+      shippingAddress: event.shippingAddress,
+      shippingRate: event.shippingRate,
     })
 
     if (!stripe || !elements) {
@@ -163,25 +165,9 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
         response: paymentSessionResponse
       })
 
-      // Confirm the payment with Stripe (inline, no redirect)
-      const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
-        elements,
-        clientSecret: clientSecret,
-        redirect: "always",
-        
-      })
-
-      if (confirmError) {
-        throw new Error(confirmError.message)
-      }
-
-      debug("Payment confirmed", {
-        paymentIntentId: paymentIntent?.id,
-        status: paymentIntent?.status,
-      })
-
-      // Complete the express checkout event
-      event.complete('success')
+      // For Express Checkout Element, we don't need to manually confirm payment
+      // The payment is handled automatically by the express payment method
+      debug("Express checkout payment handled by payment method")
       
       // Place the order and get the result
       debug("Placing order via express checkout...")

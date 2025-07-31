@@ -36,7 +36,7 @@ export default function ExpressCheckoutWrapper({
     return null
   }
 
-  // Stripe Elements options for Express Checkout - using Payment Request approach
+  // Stripe Elements options for Express Checkout
   const options = {
     mode: "payment" as const,
     amount: Math.round((cart.total || 0) * 100), // Convert to cents
