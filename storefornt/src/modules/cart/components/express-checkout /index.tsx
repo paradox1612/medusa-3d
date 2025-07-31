@@ -146,26 +146,29 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
       // Create payment session
       debug("Creating payment session for express checkout")
       const paymentSessionResponse = await initiatePaymentSession(updatedCart || cart, {
-        provider_id: "stripe",
+        provider_id: "pp_stripe_stripe",
       })
+      const paymentSession = paymentSessionResponse.payment_collection?.payment_sessions?.[0]
 
-      if (!paymentSessionResponse?.payment_session?.data?.client_secret) {
-        throw new Error("Failed to create payment session")
+      // Handle different possible response structures
+      const clientSecret = paymentSession?.data?.client_secret
+      
+      if (!clientSecret) {
+        throw new Error("Failed to create payment session - no client secret")
       }
 
       debug("Payment session created", {
-        sessionId: paymentSessionResponse.payment_session.id,
-        hasClientSecret: !!paymentSessionResponse.payment_session.data.client_secret,
+        sessionId: paymentSession?.id,
+        hasClientSecret: !!clientSecret,
+        response: paymentSessionResponse
       })
 
-      // Confirm the payment with Stripe
+      // Confirm the payment with Stripe (inline, no redirect)
       const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
         elements,
-        clientSecret: paymentSessionResponse.payment_session.data.client_secret,
-        confirmParams: {
-          return_url: `${window.location.origin}/${countryCode || cart.region?.countries?.[0]?.iso_2}/order/confirmed`,
-        },
-        redirect: "if_required",
+        clientSecret: clientSecret,
+        redirect: "always",
+        
       })
 
       if (confirmError) {
@@ -180,9 +183,12 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
       // Complete the express checkout event
       event.complete('success')
       
-      // Place the order
+      // Place the order and get the result
       debug("Placing order via express checkout...")
-      await placeOrder()
+      const orderResult = await placeOrder()
+      
+      // The placeOrder function will automatically redirect to the order confirmation page
+      // so we don't need to manually redirect here
       
     } catch (err: any) {
       const errorMsg = err.message || "Express checkout failed"
@@ -200,37 +206,9 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
     async (event: any) => {
       debug("Shipping address changed", event)
       
-      // Load shipping options for the new address if needed
-      try {
-        const options = await listCartOptions()
-        const availableOptions = options.shipping_options || []
-        
-        // Provide shipping rates to Stripe
-        const shippingRates = availableOptions.map(option => ({
-          id: option.id,
-          displayName: option.name,
-          amount: Math.round((option.amount || 0) * 100), // Convert to cents
-        }))
-        
-        event.resolve({
-          status: 'success',
-          shippingRates: shippingRates.length > 0 ? shippingRates : [{
-            id: 'free',
-            displayName: 'Free Shipping',
-            amount: 0,
-          }]
-        })
-      } catch (error) {
-        debug("Error handling shipping address change", error)
-        event.resolve({
-          status: 'success',
-          shippingRates: [{
-            id: 'free',
-            displayName: 'Free Shipping',
-            amount: 0,
-          }]
-        })
-      }
+      // For Express Checkout Element, we don't handle shipping rates here
+      // The payment methods (Apple Pay, Google Pay) will handle shipping internally
+      event.resolve({ status: 'success' })
     },
     [debug]
   )
@@ -309,9 +287,6 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
               paypal: "buynow",
             },
             buttonHeight: 48,
-            requestShipping: true,
-            requestPayerName: true,
-            requestPayerEmail: true,
             layout: {
               maxColumns: 1,
               maxRows: 1,
