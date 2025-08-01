@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react"
 import { ExpressCheckoutElement, useStripe, useElements } from "@stripe/react-stripe-js"
 import type { HttpTypes } from "@medusajs/types"
 import { updateCart, placeOrder, setShippingMethod, listCartOptions, initiatePaymentSession } from "@lib/data/cart"
+import { listCartShippingMethods, calculatePriceForShippingOption } from "@lib/data/fulfillment"
 
 type ShippingOption = HttpTypes.StoreCartShippingOption & {
   price_type?: string;
@@ -30,31 +31,28 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
       try {
         // Only load options if we don't have any yet
         if (shippingOptions.length === 0) {
-          const options = await listCartOptions()
+          // Use the pre-built method to list shipping methods
+          const shippingMethods = await listCartShippingMethods(cart.id)
+          
+          if (!shippingMethods) {
+            console.error("No shipping methods available")
+            return
+          }
           
           // For calculated shipping options, get their prices
           const optionsWithPrices = await Promise.all<ShippingOption>(
-            (options.shipping_options || []).map(async (option) => {
+            shippingMethods.map(async (option) => {
               if (option.price_type === "calculated") {
                 try {
-                  const response = await fetch(
-                    `${process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL}/store/shipping-options/${option.id}/calculate`,
-                    {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        cart_id: cart.id,
-                      }),
-                    }
+                  const calculatedOption = await calculatePriceForShippingOption(
+                    option.id,
+                    cart.id
                   )
                   
-                  if (response.ok) {
-                    const data = await response.json()
+                  if (calculatedOption) {
                     return {
                       ...option,
-                      amount: data.shipping_option.amount
+                      amount: calculatedOption.amount
                     }
                   }
                 } catch (error) {
@@ -102,31 +100,26 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
       })
       
       // Refresh shipping options after updating address
-      const options = await listCartOptions()
-      
+      const shippingMethods = await listCartShippingMethods(cart.id)
+        
+      if (!shippingMethods) {
+        throw new Error("No shipping methods available")
+      }
+        
       // For calculated shipping options, get their prices
       const optionsWithPrices = await Promise.all<ShippingOption>(
-        (options.shipping_options || []).map(async (option) => {
+        shippingMethods.map(async (option) => {
           if (option.price_type === "calculated") {
             try {
-              const response = await fetch(
-                `${process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL}/store/shipping-options/${option.id}/calculate`,
-                {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    cart_id: cart.id,
-                  }),
-                }
+              const calculatedOption = await calculatePriceForShippingOption(
+                option.id,
+                cart.id
               )
               
-              if (response.ok) {
-                const data = await response.json()
+              if (calculatedOption) {
                 return {
                   ...option,
-                  amount: data.shipping_option.amount
+                  amount: calculatedOption.amount
                 }
               }
             } catch (error) {
@@ -136,7 +129,7 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
           return option as ShippingOption
         })
       )
-      
+    
       setShippingOptions(optionsWithPrices)
       
       // Format shipping rates for Stripe
