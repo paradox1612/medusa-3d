@@ -60,6 +60,14 @@ export default async function Footer() {
                     FAQ
                   </LocalizedClientLink>
                 </li>
+                <li>
+                  <LocalizedClientLink
+                    className="hover:text-purple-600 transition-colors"
+                    href="/contact"
+                  >
+                    Contact Us
+                  </LocalizedClientLink>
+                </li>
               </ul>
             </div>
 
@@ -136,6 +144,14 @@ export default async function Footer() {
                     href="/refund-policy"
                   >
                     Refund Policy
+                  </LocalizedClientLink>
+                </li>
+                <li>
+                  <LocalizedClientLink
+                    className="hover:text-purple-600 transition-colors"
+                    href="/safety"
+                  >
+                    Product Safety
                   </LocalizedClientLink>
                 </li>
               </ul>

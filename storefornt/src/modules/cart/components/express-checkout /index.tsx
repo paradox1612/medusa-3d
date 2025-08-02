@@ -80,7 +80,7 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
   // Handle shipping address changes with proper cart state management
   const handleShippingAddressChange = useCallback(async (event: any) => {
     try {
-      console.log("📍 Shipping address changed - event:", event)
+      //console.log("📍 Shipping address changed - event:", event)
       
       if (!event.address) {
         console.error("No shipping address provided in the event")
@@ -107,13 +107,14 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
         phone: event.address?.phone || ""
       }
 
-      console.log("📝 Processed shipping data for cart update:", shippingData)
+      
       
       // Update cart with shipping address using the processed data
       const updatedCart = await updateCart({
         shipping_address: shippingData
       })
       
+
       // CRITICAL: Wait and retrieve the updated cart to ensure address is saved
       console.log("🔄 Retrieving updated cart state...")
       const freshCart = await retrieveCart(currentCart.id)
@@ -135,11 +136,11 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
         event.resolve({
           shippingRates: [{
             id: 'free-shipping-fallback',
-            displayName: 'Free Shipping',
+            displayName: 'Free Ship',
             amount: 0,
             deliveryEstimate: {
               minimum: { unit: 'business_day' as const, value: 3 },
-              maximum: { unit: 'business_day' as const, value: 7 }
+              maximum: { unit: 'business_day' as const, value: 15 }
             }
           }]
         })
@@ -193,7 +194,7 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
           amount: 0,
           deliveryEstimate: {
             minimum: { unit: 'business_day' as const, value: 3 },
-            maximum: { unit: 'business_day' as const, value: 7 }
+            maximum: { unit: 'business_day' as const, value: 17 }
           }
         }]
       })
@@ -208,7 +209,7 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
           amount: 0,
           deliveryEstimate: {
             minimum: { unit: 'business_day' as const, value: 3 },
-            maximum: { unit: 'business_day' as const, value: 7 }
+            maximum: { unit: 'business_day' as const, value: 70 }
           }
         }]
       })
@@ -335,7 +336,7 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
       }
       // Place the order to get the order ID
       console.log("📋 Placing order...")
-      const orderResult = await placeOrder()
+      const orderResult = await placeOrder(workingCart.id)
       console.log("✅ Order placed successfully:", orderResult)
 
       if (!orderResult?.id) {
