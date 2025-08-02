@@ -270,26 +270,31 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
       if (event.shippingRate && event.shippingRate.id !== 'free-shipping-fallback') {
         console.log("🚚 Setting shipping method:", event.shippingRate.id)
         
-        try {
-          await setShippingMethod({
-            cartId: workingCart.id,
-            shippingMethodId: event.shippingRate.id
-          })
-          console.log("✅ Shipping method set successfully")
-          
-          // Get updated cart after setting shipping method
-          const cartWithShipping = await retrieveCart(workingCart.id)
-          if (cartWithShipping) {
-            workingCart = cartWithShipping
-            setCurrentCart(cartWithShipping)
+        // Validate shipping method exists in available options
+        const validShippingOption = shippingOptions.find(option => option.id === event.shippingRate.id)
+        
+        if (validShippingOption) {
+          try {
+            await setShippingMethod({
+              cartId: workingCart.id,
+              shippingMethodId: event.shippingRate.id
+            })
+            console.log("✅ Shipping method set successfully")
+            
+            // Get updated cart after setting shipping method
+            const cartWithShipping = await retrieveCart(workingCart.id)
+            if (cartWithShipping) {
+              workingCart = cartWithShipping
+              setCurrentCart(cartWithShipping)
+            }
+            
+          } catch (shippingError: any) {
+            console.error("❌ Failed to set shipping method:", shippingError)
+            throw new Error(`Failed to set shipping method: ${shippingError.message}`)
           }
-          
-        } catch (shippingError: any) {
-          console.error("❌ Failed to set shipping method:", shippingError)
-          
-          // If setting specific shipping method fails, try with first available option
+        } else {
+          console.warn("⚠️ Selected shipping method not found in available options, using first available")
           if (shippingOptions.length > 0) {
-            console.log("🔄 Trying with first available shipping option...")
             await setShippingMethod({
               cartId: workingCart.id,
               shippingMethodId: shippingOptions[0].id
@@ -299,10 +304,15 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
       } else if (shippingOptions.length > 0) {
         // Auto-select first shipping option if none was explicitly selected
         console.log("🚚 Auto-selecting first shipping option:", shippingOptions[0].id)
-        await setShippingMethod({
-          cartId: workingCart.id,
-          shippingMethodId: shippingOptions[0].id
-        })
+        try {
+          await setShippingMethod({
+            cartId: workingCart.id,
+            shippingMethodId: shippingOptions[0].id
+          })
+        } catch (shippingError: any) {
+          console.error("❌ Failed to auto-select shipping method:", shippingError)
+          throw new Error(`Failed to set shipping method: ${shippingError.message}`)
+        }
       }
 
       // Create payment session with Stripe

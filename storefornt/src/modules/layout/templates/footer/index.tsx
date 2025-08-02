@@ -44,14 +44,14 @@ export default async function Footer() {
                     Gallery
                   </LocalizedClientLink>
                 </li>
-                <li>
+                {/* <li>
                   <LocalizedClientLink
                     className="hover:text-purple-600 transition-colors"
                     href="/pricing"
                   >
                     Pricing
                   </LocalizedClientLink>
-                </li>
+                </li> */}
                 <li>
                   <LocalizedClientLink
                     className="hover:text-purple-600 transition-colors"
@@ -91,14 +91,14 @@ export default async function Footer() {
                     Shipping Info
                   </LocalizedClientLink>
                 </li>
-                <li>
+                {/* <li>
                   <LocalizedClientLink
                     className="hover:text-purple-600 transition-colors"
                     href="/returns"
                   >
                     Returns
                   </LocalizedClientLink>
-                </li>
+                </li> */}
                 <li>
                   <LocalizedClientLink
                     className="hover:text-purple-600 transition-colors"
