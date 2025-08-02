@@ -9,23 +9,23 @@ import FAQSection from '@modules/layout/components/FAQSection';
 const faqData = [
   {
     question: "What's your return policy?",
-    answer: "We offer a 30-day return policy for most items. Products must be unused and in the same condition that you received them."
+    answer: "Due to the custom nature of our 3D printed models, we do not accept returns or offer refunds for items that have been painted or colored. Each model is made to your specific requirements, making returns impractical."
   },
   {
-    question: "How do I request a refund?",
-    answer: "To request a refund, please contact our customer service team through your account dashboard or email us with your order number and reason for the refund."
+    question: "What if my item arrives damaged or is defective?",
+    answer: "If your package arrives with damaged or broken items, please contact us within 2 days of receiving your order. We will work with you to replace the damaged items at no additional cost."
   },
   {
-    question: "How long does the refund process take?",
-    answer: "Once we receive your return, it typically takes 3-5 business days to process the refund. The time it takes for the money to appear in your account depends on your payment method and financial institution."
+    question: "How do I report a damaged or defective item?",
+    answer: "Please contact our customer service team immediately with your order number and clear photos of the damage. For defective items, please include a detailed description of the issue."
   },
   {
-    question: "Do I have to pay for return shipping?",
-    answer: "For standard returns, customers are responsible for return shipping costs. If you received a defective or incorrect item, we'll provide a prepaid return label."
+    question: "Do you offer exchanges?",
+    answer: "Due to the custom nature of our products, we do not offer exchanges. Each item is made to order according to your specifications."
   },
   {
-    question: "Can I exchange an item instead of returning it?",
-    answer: "Yes, we do offer exchanges. Please contact our customer service team to initiate an exchange process."
+    question: "How long does it take to process a replacement for a damaged item?",
+    answer: "Once we receive and approve your damage claim, we will process your replacement within 3-5 business days. Shipping times will vary based on your location."
   }
 ]
 
