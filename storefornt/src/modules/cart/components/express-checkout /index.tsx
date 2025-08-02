@@ -33,6 +33,7 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
         
         // Use your existing method with the correct approach
         const options = await listCartShippingMethods(currentCart.id)
+        console.log("📦 Raw shipping options from API:", JSON.stringify(options, null, 2))
         
         if (!options || options.length === 0) {
           console.warn("No shipping options available for this cart")
@@ -81,25 +82,36 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
     try {
       console.log("📍 Shipping address changed - event:", event)
       
-      if (!event.shippingAddress) {
+      if (!event.address) {
         console.error("No shipping address provided in the event")
         throw new Error("Shipping address is required")
       }
 
       console.log("📍 Updating cart with shipping address...")
       
-      // Update cart with shipping address using your existing method
+      // Log the incoming data structure for debugging
+      console.log("📦 Incoming address data:", {
+        name: event.name,
+        address: event.address,
+        shippingAddress: event.shippingAddress
+      })
+
+      const shippingData = {
+        first_name: event.name?.givenName || "",
+        last_name: event.name?.familyName || "",
+        address_1: event.address?.line1 || "",
+        address_2: event.address?.line2 || "",
+        city: event.address?.city || "",
+        country_code: event.address?.country?.toLowerCase() || "",
+        postal_code: event.address?.postal_code || "",
+        phone: event.address?.phone || ""
+      }
+
+      console.log("📝 Processed shipping data for cart update:", shippingData)
+      
+      // Update cart with shipping address using the processed data
       const updatedCart = await updateCart({
-        shipping_address: {
-          first_name: event.shippingAddress.givenName || "",
-          last_name: event.shippingAddress.familyName || "",
-          address_1: event.shippingAddress.addressLine?.[0] || "",
-          address_2: event.shippingAddress.addressLine?.[1] || "",
-          city: event.shippingAddress.city || "",
-          country_code: event.shippingAddress.country?.toLowerCase() || "",
-          postal_code: event.shippingAddress.postalCode || "",
-          phone: event.shippingAddress.phone || ""
-        }
+        shipping_address: shippingData
       })
       
       // CRITICAL: Wait and retrieve the updated cart to ensure address is saved
