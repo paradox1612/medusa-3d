@@ -33,7 +33,7 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
         
         // Use your existing method with the correct approach
         const options = await listCartShippingMethods(currentCart.id)
-        console.log("📦 Raw shipping options from API:", JSON.stringify(options, null, 2))
+        //console.log("📦 Raw shipping options from API:", JSON.stringify(options, null, 2))
         
         if (!options || options.length === 0) {
           console.warn("No shipping options available for this cart")
@@ -317,6 +317,22 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
         throw new Error("Failed to create payment session")
       }
 
+      
+
+      // Confirm payment with Stripe using the order ID in the return URL
+      console.log("💳 Confirming payment with Stripe...")
+      const { error: confirmError } = await stripe.confirmPayment({
+        elements,
+        clientSecret: clientSecret,
+        confirmParams: {
+          return_url: `${window.location.origin}/${countryCode || 'us'}/cart`,
+        },
+        redirect: 'if_required',
+      })
+
+      if (confirmError) {
+        throw new Error(confirmError.message)
+      }
       // Place the order to get the order ID
       console.log("📋 Placing order...")
       const orderResult = await placeOrder()
@@ -325,22 +341,6 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
       if (!orderResult?.id) {
         throw new Error("Failed to place order or get order ID")
       }
-
-      // Confirm payment with Stripe using the order ID in the return URL
-      console.log("💳 Confirming payment with Stripe...")
-      const { error: confirmError } = await stripe.confirmPayment({
-        elements,
-        clientSecret: clientSecret,
-        confirmParams: {
-          return_url: `${window.location.origin}/${countryCode || 'us'}/order/${orderResult.id}/confirmed`,
-        },
-        redirect: 'if_required',
-      })
-
-      if (confirmError) {
-        throw new Error(confirmError.message)
-      }
-
       // Redirect to confirmation page
       console.log("✅ Payment confirmed, redirecting...")
       window.location.href = `/${countryCode || 'us'}/order/${orderResult.id}/confirmed`
