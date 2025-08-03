@@ -51,10 +51,7 @@ module.exports = defineConfig({
         providers: [
           {
             resolve: `@medusajs/medusa/fulfillment-manual`,
-            id: "manual",
-            options: {
-              // provider options...
-            },
+            id: "manual"
           },
         ],
       },

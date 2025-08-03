@@ -25,71 +25,12 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
   const [currentCart, setCurrentCart] = useState(cart)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
 
-  // Create payment intent with estimated total including shipping
+  // Create payment intent with base cart amount - simple and safe approach
   useEffect(() => {
-    const initializePaymentWithShipping = async () => {
+    const initializePayment = async () => {
       try {
-        console.log("💳 Pre-calculating shipping to create accurate PaymentIntent...")
+        console.log("💳 Creating initial payment session with base cart:", currentCart.total)
         
-        // First, try to set a default shipping method to get accurate pricing
-        if (!currentCart.shipping_address) {
-          // Set a default US address to get shipping calculation
-          console.log("📍 Setting default address for shipping calculation...")
-          
-          const defaultShippingData = {
-            first_name: "John",
-            last_name: "Doe", 
-            address_1: "123 Main St",
-            city: "New York",
-            country_code: "us",
-            postal_code: "10001",
-            phone: ""
-          }
-          
-          await updateCart({
-            shipping_address: defaultShippingData
-          })
-        }
-        
-        // Get updated cart with address
-        const cartWithAddress = await retrieveCart(currentCart.id)
-        
-        if (cartWithAddress) {
-          // Get shipping methods and set the first one
-          const shippingMethods = await listCartShippingMethods(cartWithAddress.id)
-          
-          if (shippingMethods && shippingMethods.length > 0) {
-            await setShippingMethod({
-              cartId: cartWithAddress.id,
-              shippingMethodId: shippingMethods[0].id
-            })
-            
-            // Get final cart with shipping applied
-            const finalCart = await retrieveCart(cartWithAddress.id)
-            
-            if (finalCart) {
-              console.log("📊 Creating PaymentIntent with accurate total:", finalCart.total)
-              
-              // Now create payment session with the real total
-              const paymentSessionResponse = await initiatePaymentSession(finalCart, {
-                provider_id: "pp_stripe_stripe",
-              })
-
-              const paymentSession = paymentSessionResponse?.payment_collection?.payment_sessions?.[0]
-              const initialClientSecret = paymentSession?.data?.client_secret as string
-
-              if (initialClientSecret) {
-                setClientSecret(initialClientSecret)
-                setCurrentCart(finalCart)
-                console.log("✅ PaymentIntent created with realistic total:", finalCart.total)
-                return
-              }
-            }
-          }
-        }
-        
-        // Fallback to original method if shipping calculation fails
-        console.log("⚠️ Falling back to base cart amount")
         const paymentSessionResponse = await initiatePaymentSession(currentCart, {
           provider_id: "pp_stripe_stripe",
         })
@@ -99,9 +40,8 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
 
         if (initialClientSecret) {
           setClientSecret(initialClientSecret)
-          console.log("✅ Fallback PaymentIntent created with base amount:", currentCart.total)
+          console.log("✅ Initial payment session created with base amount:", currentCart.total)
         }
-        
       } catch (error) {
         console.error("Failed to initialize payment session:", error)
         setError("Failed to initialize payment")
@@ -109,14 +49,14 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
     }
 
     if (currentCart?.id && !clientSecret) {
-      initializePaymentWithShipping()
+      initializePayment()
     }
   }, [currentCart?.id, clientSecret])
 
-  // Handle shipping address changes following Stripe's pattern
+  // Handle shipping address changes with customer info collection
   const handleShippingAddressChange = useCallback(async (event: any) => {
     try {
-      console.log("📍 Shipping address changed - Stripe event:", event)
+      console.log("📍 Shipping address changed - Full event:", event)
       
       if (!event.address) {
         console.error("No shipping address provided")
@@ -125,22 +65,37 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
       }
 
       console.log("📍 Updating cart with shipping address...")
+      console.log("👤 Customer info from event:", {
+        email: event.email,
+        phone: event.phone,
+        name: event.name
+      })
       
       const shippingData = {
         first_name: event.name?.givenName || "",
         last_name: event.name?.familyName || "",
+        company: "", // Required string field
         address_1: event.address?.line1 || "",
         address_2: event.address?.line2 || "",
         city: event.address?.city || "",
         country_code: event.address?.country?.toLowerCase() || "",
+        province: event.address?.state || "", // Required string field - state/province
         postal_code: event.address?.postal_code || "",
-        phone: event.address?.phone || ""
+        phone: event.address?.phone || event.phone || ""
       }
 
-      // Update cart with shipping address
-      await updateCart({
+      // Update cart with shipping address AND customer email
+      const cartUpdates: any = {
         shipping_address: shippingData
-      })
+      }
+
+      // Add customer email if available (email goes to cart root, not address)
+      if (event.email) {
+        cartUpdates.email = event.email
+        console.log("📧 Setting customer email:", event.email)
+      }
+
+      await updateCart(cartUpdates)
 
       // Get updated cart
       const freshCart = await retrieveCart(currentCart.id)
@@ -150,6 +105,10 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
         return
       }
       
+      console.log("✅ Cart updated with address and customer info:", {
+        email: freshCart.email,
+        shipping_phone: freshCart.shipping_address?.phone
+      })
       setCurrentCart(freshCart)
       
       // Get shipping methods for this address
@@ -202,7 +161,6 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
           })
 
           // For Stripe, we need to show ONLY the shipping amount difference
-          // The base cart amount is already in the payment intent
           const shippingAmount = cartWithShipping.shipping_total || 0
           
           console.log(`📦 Shipping option "${option.name}":`, {
@@ -295,9 +253,9 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
     }
   }, [currentCart.id])
 
-  // Handle final payment confirmation
+  // Handle final payment confirmation with customer info collection
   const handleExpressCheckout = async (event: any) => {
-    console.log("💳 Express checkout confirmed")
+    console.log("💳 Express checkout confirmed with full event data:", event)
     
     if (!stripe || !elements || !clientSecret) {
       setError("Payment not properly initialized")
@@ -318,16 +276,96 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
         subtotal: latestCart.subtotal,
         shipping_total: latestCart.shipping_total,
         tax_total: latestCart.tax_total,
-        total: latestCart.total
+        total: latestCart.total,
+        email: latestCart.email
       })
 
-      // Use the current client secret which should have the updated amount
-      console.log("💳 Confirming payment with updated PaymentIntent")
+      // Collect customer information from the Express Checkout event
+      const customerInfo: any = {}
+      
+      if (event.payerEmail) {
+        customerInfo.email = event.payerEmail
+        console.log("📧 Customer email from payerEmail:", event.payerEmail)
+      }
+      
+      if (event.payerPhone) {
+        customerInfo.phone = event.payerPhone
+        console.log("📱 Customer phone from payerPhone:", event.payerPhone)
+      }
 
-      // Confirm payment with the updated payment intent
+      // Also check billing details for email/phone
+      if (event.billingDetails) {
+        if (event.billingDetails.email && !customerInfo.email) {
+          customerInfo.email = event.billingDetails.email
+          console.log("📧 Customer email from billingDetails:", event.billingDetails.email)
+        }
+        if (event.billingDetails.phone && !customerInfo.phone) {
+          customerInfo.phone = event.billingDetails.phone
+          console.log("📱 Customer phone from billingDetails:", event.billingDetails.phone)
+        }
+      }
+
+      // Update cart with customer information if we have it
+      if (customerInfo.email || customerInfo.phone) {
+        console.log("👤 Updating cart with customer info:", customerInfo)
+        
+        const cartUpdates: any = {}
+        
+        // Email goes to the cart root level
+        if (customerInfo.email) {
+          cartUpdates.email = customerInfo.email
+        }
+        
+        // Phone goes to the shipping address
+        if (customerInfo.phone && latestCart.shipping_address) {
+          // Only include allowed fields, exclude id and other system fields
+          cartUpdates.shipping_address = {
+            first_name: latestCart.shipping_address.first_name || "",
+            last_name: latestCart.shipping_address.last_name || "",
+            company: latestCart.shipping_address.company || "",
+            address_1: latestCart.shipping_address.address_1 || "",
+            address_2: latestCart.shipping_address.address_2 || "",
+            city: latestCart.shipping_address.city || "",
+            country_code: latestCart.shipping_address.country_code || "",
+            province: latestCart.shipping_address.province || "",
+            postal_code: latestCart.shipping_address.postal_code || "",
+            phone: customerInfo.phone
+          }
+          console.log("📱 Adding phone to shipping address:", customerInfo.phone)
+        }
+        
+        await updateCart(cartUpdates)
+        
+        // Get updated cart
+        const updatedCart = await retrieveCart(latestCart.id)
+        if (updatedCart) {
+          console.log("✅ Cart updated with customer info:", {
+            email: updatedCart.email,
+            shipping_phone: updatedCart.shipping_address?.phone
+          })
+        }
+      }
+
+      // CRITICAL: We need to create a NEW payment intent with the correct total amount
+      console.log("💳 Creating new payment session with final cart total:", latestCart.total)
+      
+      const finalPaymentSessionResponse = await initiatePaymentSession(latestCart, {
+        provider_id: "pp_stripe_stripe",
+      })
+
+      const finalPaymentSession = finalPaymentSessionResponse?.payment_collection?.payment_sessions?.[0]
+      const finalClientSecret = finalPaymentSession?.data?.client_secret as string
+
+      if (!finalClientSecret) {
+        throw new Error("Failed to create final payment session")
+      }
+
+      console.log("✅ Final payment session created with correct total:", latestCart.total)
+
+      // Confirm payment with the correct amount
       const { error: confirmError } = await stripe.confirmPayment({
         elements,
-        clientSecret: clientSecret, // This should now have the correct amount
+        clientSecret: finalClientSecret, // Use the new client secret with correct amount
         confirmParams: {
           return_url: `${window.location.origin}/${countryCode || 'us'}/cart`,
         },
@@ -398,13 +436,21 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
               paypal: "buynow",
             },
             buttonHeight: 48,
-            // Enable shipping address collection
+            // Enable customer info collection
             shippingAddressRequired: true,
             emailRequired: true,
             phoneNumberRequired: true,
-            // Don't provide initial shipping rates - let the address change event handle it
-            // This prevents Google Pay from showing confusing shipping options
-            shippingRates: [],
+            // Provide a realistic default shipping rate based on your actual costs
+            // This gives users a better estimate before address entry
+            shippingRates: [{
+              id: 'estimated-shipping',
+              displayName: 'Estimated Shipping',
+              amount: 743, // $7.43 in cents (your actual increase: $17.43 - $10.90 = $6.53, but we add a bit more buffer)
+              deliveryEstimate: {
+                minimum: { unit: 'business_day' as const, value: 3 },
+                maximum: { unit: 'business_day' as const, value: 7 }
+              }
+            }],
           }}
           onReady={(event) => {
             console.log("✅ ExpressCheckoutElement ready")
