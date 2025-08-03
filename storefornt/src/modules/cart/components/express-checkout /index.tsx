@@ -253,7 +253,7 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
     }
   }, [currentCart.id])
 
-  // Handle final payment confirmation with customer info collection
+  // Handle final payment confirmation with complete address update
   const handleExpressCheckout = async (event: any) => {
     console.log("💳 Express checkout confirmed with full event data:", event)
     
@@ -266,85 +266,78 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
     setError(null)
 
     try {
-      // Get the latest cart state
+      // CRITICAL: Update cart with final shipping and billing addresses from Google Pay
+      console.log("📍 Updating cart with final addresses from Google Pay...")
+      
+      const finalCartUpdates: any = {}
+      
+      // Update shipping address with complete info from Google Pay
+      if (event.shippingAddress) {
+        const shippingAddr = event.shippingAddress
+        finalCartUpdates.shipping_address = {
+          first_name: shippingAddr.name?.split(' ')[0] || "",
+          last_name: shippingAddr.name?.split(' ').slice(1).join(' ') || "",
+          company: "",
+          address_1: shippingAddr.address?.line1 || "",
+          address_2: shippingAddr.address?.line2 || "",
+          city: shippingAddr.address?.city || "",
+          country_code: shippingAddr.address?.country?.toLowerCase() || "",
+          province: shippingAddr.address?.state || "",
+          postal_code: shippingAddr.address?.postal_code || "",
+          phone: event.billingDetails?.phone || ""
+        }
+        console.log("🏠 Final shipping address:", finalCartUpdates.shipping_address)
+      }
+      
+      // Update billing address with complete info from Google Pay  
+      if (event.billingDetails?.address) {
+        const billingAddr = event.billingDetails
+        finalCartUpdates.billing_address = {
+          first_name: billingAddr.name?.split(' ')[0] || "",
+          last_name: billingAddr.name?.split(' ').slice(1).join(' ') || "",
+          company: "",
+          address_1: billingAddr.address?.line1 || "",
+          address_2: billingAddr.address?.line2 || "",
+          city: billingAddr.address?.city || "",
+          country_code: billingAddr.address?.country?.toLowerCase() || "",
+          province: billingAddr.address?.state || "",
+          postal_code: billingAddr.address?.postal_code || "",
+          phone: billingAddr.phone || ""
+        }
+        console.log("💳 Final billing address:", finalCartUpdates.billing_address)
+      }
+      
+      // Update email
+      if (event.billingDetails?.email) {
+        finalCartUpdates.email = event.billingDetails.email
+        console.log("📧 Final email:", event.billingDetails.email)
+      }
+      
+      // Apply all final updates to cart
+      if (Object.keys(finalCartUpdates).length > 0) {
+        console.log("🔄 Applying final cart updates...")
+        await updateCart(finalCartUpdates)
+      }
+
+      // Get the latest cart state after final updates
       const latestCart = await retrieveCart(currentCart.id)
       if (!latestCart) {
         throw new Error("Failed to retrieve cart")
       }
 
-      console.log("📊 Final cart state:", {
+      console.log("📊 Final cart state after updates:", {
         subtotal: latestCart.subtotal,
         shipping_total: latestCart.shipping_total,
         tax_total: latestCart.tax_total,
         total: latestCart.total,
-        email: latestCart.email
+        email: latestCart.email,
+        shipping_address: latestCart.shipping_address ? {
+          name: `${latestCart.shipping_address.first_name} ${latestCart.shipping_address.last_name}`,
+          address: latestCart.shipping_address.address_1,
+          city: latestCart.shipping_address.city,
+          phone: latestCart.shipping_address.phone
+        } : null
       })
-
-      // Collect customer information from the Express Checkout event
-      const customerInfo: any = {}
-      
-      if (event.payerEmail) {
-        customerInfo.email = event.payerEmail
-        console.log("📧 Customer email from payerEmail:", event.payerEmail)
-      }
-      
-      if (event.payerPhone) {
-        customerInfo.phone = event.payerPhone
-        console.log("📱 Customer phone from payerPhone:", event.payerPhone)
-      }
-
-      // Also check billing details for email/phone
-      if (event.billingDetails) {
-        if (event.billingDetails.email && !customerInfo.email) {
-          customerInfo.email = event.billingDetails.email
-          console.log("📧 Customer email from billingDetails:", event.billingDetails.email)
-        }
-        if (event.billingDetails.phone && !customerInfo.phone) {
-          customerInfo.phone = event.billingDetails.phone
-          console.log("📱 Customer phone from billingDetails:", event.billingDetails.phone)
-        }
-      }
-
-      // Update cart with customer information if we have it
-      if (customerInfo.email || customerInfo.phone) {
-        console.log("👤 Updating cart with customer info:", customerInfo)
-        
-        const cartUpdates: any = {}
-        
-        // Email goes to the cart root level
-        if (customerInfo.email) {
-          cartUpdates.email = customerInfo.email
-        }
-        
-        // Phone goes to the shipping address
-        if (customerInfo.phone && latestCart.shipping_address) {
-          // Only include allowed fields, exclude id and other system fields
-          cartUpdates.shipping_address = {
-            first_name: latestCart.shipping_address.first_name || "",
-            last_name: latestCart.shipping_address.last_name || "",
-            company: latestCart.shipping_address.company || "",
-            address_1: latestCart.shipping_address.address_1 || "",
-            address_2: latestCart.shipping_address.address_2 || "",
-            city: latestCart.shipping_address.city || "",
-            country_code: latestCart.shipping_address.country_code || "",
-            province: latestCart.shipping_address.province || "",
-            postal_code: latestCart.shipping_address.postal_code || "",
-            phone: customerInfo.phone
-          }
-          console.log("📱 Adding phone to shipping address:", customerInfo.phone)
-        }
-        
-        await updateCart(cartUpdates)
-        
-        // Get updated cart
-        const updatedCart = await retrieveCart(latestCart.id)
-        if (updatedCart) {
-          console.log("✅ Cart updated with customer info:", {
-            email: updatedCart.email,
-            shipping_phone: updatedCart.shipping_address?.phone
-          })
-        }
-      }
 
       // CRITICAL: We need to create a NEW payment intent with the correct total amount
       console.log("💳 Creating new payment session with final cart total:", latestCart.total)
@@ -376,14 +369,15 @@ export default function ExpressCheckout({ cart, countryCode }: ExpressCheckoutPr
         throw new Error(confirmError.message)
       }
 
-      // Place the order
+      // Place the order with the fully updated cart
+      console.log("📋 Placing order with complete cart information...")
       const orderResult = await placeOrder(latestCart.id)
       
       if (!orderResult?.id) {
         throw new Error("Failed to place order")
       }
 
-      console.log("✅ Payment successful, redirecting to confirmation")
+      console.log("✅ Order placed successfully with ID:", orderResult.id)
       
       // Redirect to confirmation
       window.location.href = `/${countryCode || 'us'}/order/${orderResult.id}/confirmed`
