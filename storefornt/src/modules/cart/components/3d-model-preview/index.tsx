@@ -67,7 +67,7 @@ const Cart3DModelPreview: React.FC<Cart3DModelPreviewProps> = ({
               </div>
               
               <div className="flex items-center gap-2">
-                <Button
+                {/* <Button
                   onClick={handleDownload}
                   variant="secondary"
                   className="flex items-center gap-1 text-sm px-3 py-1 h-auto"
@@ -75,15 +75,15 @@ const Cart3DModelPreview: React.FC<Cart3DModelPreviewProps> = ({
                   <Download className="w-4 h-4" />
                   Download
                 </Button>
-                
-                <Button
+                 */}
+                {/* <Button
                   onClick={handleViewInNewTab}
                   variant="secondary"
                   className="flex items-center gap-1 text-sm px-3 py-1 h-auto"
                 >
                   <Maximize2 className="w-4 h-4" />
                   New Tab
-                </Button>
+                </Button> */}
                 
                 <Button
                   onClick={() => setIsFullscreen(!isFullscreen)}
