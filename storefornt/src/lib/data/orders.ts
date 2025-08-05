@@ -110,3 +110,13 @@ export const declineTransferRequest = async (id: string, token: string) => {
     .then(({ order }) => ({ success: true, error: null, order }))
     .catch((err) => ({ success: false, error: err.message, order: null }))
 }
+
+export const getOrderTrackingIds = async (orderId: string) => {
+  return sdk.client
+    .fetch<{ tracking_ids: string[] }>(`/store/orders/${orderId}/tracking`, {
+      method: "GET",
+      cache: "no-store", // since tracking might change frequently
+    })
+    .then((data) => data.tracking_ids)
+    .catch((err) => medusaError(err))
+}

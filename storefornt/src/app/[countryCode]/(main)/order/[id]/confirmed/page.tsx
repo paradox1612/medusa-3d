@@ -6,10 +6,15 @@ import { notFound } from "next/navigation"
 type Props = {
   params: Promise<{ id: string }>
 }
+
 export const metadata: Metadata = {
   title: "Order Confirmed",
   description: "You purchase was successful",
 }
+
+// Disable caching for this page since order status can change
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export default async function OrderConfirmedPage(props: Props) {
   const params = await props.params

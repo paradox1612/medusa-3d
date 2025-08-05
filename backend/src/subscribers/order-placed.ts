@@ -30,24 +30,6 @@ export default async function orderPlacedHandler({
       return
     }
 
-    // Log the complete order structure to understand the data
-    console.log("=== COMPLETE ORDER STRUCTURE ===")
-    console.log(JSON.stringify(order, null, 2))
-    console.log("=== ORDER KEYS ===")
-    console.log(Object.keys(order))
-    if (order.items) {
-      console.log("=== ITEMS STRUCTURE ===")
-      console.log(JSON.stringify(order.items, null, 2))
-    }
-    if (order.summary) {
-      console.log("=== SUMMARY STRUCTURE ===")
-      console.log(JSON.stringify(order.summary, null, 2))
-    }
-    if (order.shipping_methods) {
-      console.log("=== SHIPPING METHODS STRUCTURE ===")
-      console.log(JSON.stringify(order.shipping_methods, null, 2))
-    }
-
     // Format currency helper function (values are already in dollars)
     const formatCurrency = (amount: number, currencyCode: string): string => {
       return new Intl.NumberFormat('en-US', {
@@ -104,12 +86,10 @@ export default async function orderPlacedHandler({
       },
       
       // Additional template variables
-      company_name: process.env.COMPANY_NAME || "Your Store",
-      support_email: process.env.SUPPORT_EMAIL || "support@yourstore.com",
+      company_name: process.env.COMPANY_NAME || "Minimica",
+      support_email: process.env.SUPPORT_EMAIL || "support@minimica.com",
       support_phone: process.env.SUPPORT_PHONE || "",
-      tracking_url: process.env.TRACKING_URL 
-        ? `${process.env.TRACKING_URL}?order=${orderDisplayId}` 
-        : "#",
+      tracking_url: `https://minimica.com/us/order/${order.id}/confirmed`,
       current_year: new Date().getFullYear(),
       
       // Helper for currency formatting in template
@@ -125,7 +105,7 @@ export default async function orderPlacedHandler({
       data: templateData,
     })
 
-    console.log(`Order confirmation email sent for order ${orderDisplayId}`)
+    console.log(`Order confirmation email sent to ${order.email} for order ${orderDisplayId}`)
     
   } catch (error) {
     console.error("Error sending order confirmation email:", error)
