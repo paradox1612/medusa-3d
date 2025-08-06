@@ -118,7 +118,7 @@ const OrderTracking = ({ order }: OrderTrackingProps) => {
       return 40
     }
     // Handle pending payment (20%)
-    else if (payment_status === "pending" || payment_status === "awaiting") {
+    else if (payment_status === "not_paid" || payment_status === "awaiting") {
       return 20
     }
     // Order placed (10%)
